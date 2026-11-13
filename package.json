@@ -1,0 +1,15 @@
+{
+  "name": "me-c-engine-simulator",
+  "version": "1.0.0",
+  "description": "Educational 3D cutaway simulator of a MAN B&W ME-C type two-stroke crosshead marine diesel engine (Three.js, Korean UI)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "keywords": ["marine-engineering", "diesel-engine", "two-stroke", "three.js", "simulation", "education"],
+  "license": "MIT",
+  "devDependencies": {
+    "three": "0.160.0"
+  }
+}

@@ -1,0 +1,318 @@
+<title>ME-C 엔진 단면 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 기관실 제어반 — 좌측 탐색 패널 · 중앙 3D 엔진 · 우측 계기판, 하단 트랜스포트 바.
+   의도적 단일 다크 테마: 유체 색(파랑·노랑·주황·빨강·보라)이 가장 잘 구분되는 바탕. */
+:root{
+  color-scheme: dark;
+  --bg:#0f1417; --panel:#151b1f; --panel2:#1b2328; --line:#27323a; --line2:#34424c;
+  --fg:#e5e8e4; --muted:#8a989e; --dim:#5f6d74;
+  --accent:#e8ddbf;            /* 아이보리 명판 */
+  --accent-ink:#1a1712;
+  --ok:#46c28a; --warn:#e3a33b; --bad:#e5484d;
+  --air:#3d8bfd; --fuel:#f2c230; --comb:#ff8a1f; --exh:#e5484d; --oil:#a46bf0; --water:#34c38f; --steam:#cfdde6;
+  --sans:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r:6px;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px;line-height:1.45;overflow:hidden}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:292px minmax(0,1fr) 328px;height:100%}
+.pane{background:var(--panel);overflow:auto;min-width:0;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.pane.left{border-right:1px solid var(--line)}
+.pane.right{border-left:1px solid var(--line)}
+.view{position:relative;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 50% 35%, #1a2328 0%, var(--bg) 70%)}
+#gl{position:absolute;inset:0;display:block;width:100%;height:100%}
+#labels{position:absolute;inset:0;pointer-events:none}
+
+.brand{padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+.brand h1{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.plate{display:inline-block;margin-top:8px;padding:2px 7px;border-radius:3px;background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em}
+
+.sec{padding:12px 16px 14px;border-bottom:1px solid var(--line)}
+.sec h2{margin:0 0 9px;font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.sec h2 small{letter-spacing:0;text-transform:none;font-weight:400;color:var(--dim)}
+
+.seg{display:grid;gap:4px}
+.seg.c2{grid-template-columns:1fr 1fr}.seg.c3{grid-template-columns:repeat(3,1fr)}
+.btn{border:1px solid var(--line2);background:var(--panel2);border-radius:var(--r);padding:6px 8px;cursor:pointer;text-align:center;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.wide{text-align:left;display:flex;justify-content:space-between;gap:8px}
+.btn.wide span:last-child{color:var(--dim);font-size:11px}
+.btn.on.wide span:last-child{color:#5c533f}
+.row{display:flex;gap:8px;align-items:center}
+.row+.row{margin-top:8px}
+.row label{flex:0 0 auto;color:var(--muted);font-size:12px}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;min-width:56px;text-align:right}
+.chk{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:12.5px}
+.chk input{accent-color:var(--accent);margin:0}
+.chk .sw{width:22px;height:4px;border-radius:2px;flex:0 0 auto}
+.chk .sw.dash{background:repeating-linear-gradient(90deg,var(--c) 0 5px,transparent 5px 8px)!important}
+.chk .sw.dot{background:repeating-linear-gradient(90deg,var(--c) 0 2px,transparent 2px 5px)!important}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.search{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:var(--r);padding:6px 8px;margin-bottom:6px}
+.plist{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.pitem{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer}
+.pitem:last-child{border-bottom:0}
+.pitem:hover{background:var(--panel2)}
+.pitem.sel{background:#2a2a22}
+.pitem .en{color:var(--dim);font-size:11px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.pitem input{accent-color:var(--accent);margin:0}
+
+/* transport bar */
+.transport{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;background:rgba(18,24,28,.92);border:1px solid var(--line2);border-radius:10px;padding:10px 14px}
+.transport .grp{display:flex;align-items:center;gap:8px;min-width:0}
+.transport .grp.grow{flex:1 1 260px}
+.transport label{color:var(--muted);font-size:12px;white-space:nowrap}
+.play{width:38px;height:38px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:grid;place-items:center;flex:0 0 auto}
+.play svg{width:16px;height:16px}
+select{background:var(--panel2);border:1px solid var(--line2);border-radius:var(--r);padding:4px 6px}
+
+.legend{position:absolute;left:12px;bottom:84px;background:rgba(18,24,28,.88);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:11.5px;max-width:240px}
+.legend .li{display:flex;align-items:center;gap:7px;padding:1px 0}
+.legend .note{color:var(--dim);font-size:10.5px;margin-top:5px;line-height:1.35}
+.toolbar{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+.tbtn{border:1px solid var(--line2);background:rgba(18,24,28,.9);border-radius:var(--r);padding:6px 9px;cursor:pointer;font-size:12px;text-align:left}
+.tbtn:hover{border-color:var(--muted)}
+.hint{position:absolute;left:50%;transform:translateX(-50%);top:12px;color:var(--dim);font-size:11.5px;background:rgba(18,24,28,.75);padding:4px 10px;border-radius:12px;white-space:nowrap}
+
+/* labels */
+.lbl{position:absolute;transform:translate(-50%,-100%);pointer-events:auto;cursor:pointer;white-space:nowrap;padding:2px 6px 3px;border-radius:4px;background:rgba(15,20,23,.82);border:1px solid var(--line2);font-size:11px;line-height:1.2;text-align:center}
+.lbl b{display:block;font-weight:600}
+.lbl i{display:block;font-style:normal;color:var(--muted);font-size:10px}
+.lbl::after{content:"";position:absolute;left:50%;bottom:-5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--accent)}
+.lbl.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.lbl.sel i{color:#5c533f}
+
+/* right pane */
+.phase{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);background:var(--panel2);border:1px solid var(--line2);font-weight:600;font-size:13px}
+.phase .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.dial{display:block;width:100%;max-width:260px;margin:10px auto 2px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin-top:8px}
+.kv dt{color:var(--muted);font-size:12px}
+.kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;text-align:right;white-space:nowrap}
+.tag{display:inline-block;font-family:var(--sans);font-size:9.5px;padding:0 4px;border-radius:3px;margin-left:5px;vertical-align:1px;border:1px solid}
+.tag.calc{color:#9cc8ff;border-color:#2f4c70}
+.tag.edu{color:#e8c47a;border-color:#5a4826}
+.tag.ref{color:#9fe0bf;border-color:#2b5a45}
+.tag.m0d{color:#d9b8ff;border-color:#4a3866}
+.tag.m2d{color:#8fe3ea;border-color:#245459}
+.lgd{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);margin-top:4px}
+.lgd i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+.lgd i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 5px,transparent 5px 8px)}
+.ramp{margin:2px 0 8px}
+.ramp .bar{display:block;height:9px;border-radius:3px}
+.ramp .bar.mix{background:linear-gradient(90deg,#9a1f1a,#5b3a5e,#2166fa)}
+.ramp .bar.heat{background:linear-gradient(90deg,#8c0f05,#ff5c0d,#ffb34d,#ffeec7)}
+.ramp .ends{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:2px}
+.ramp .ends b{font-weight:500}
+.state{display:inline-flex;align-items:center;gap:5px}
+.state i{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--dim)}
+.state.open i{background:var(--ok)}
+.chart{width:100%;height:150px;display:block}
+.info h3{margin:0;font-size:15px;font-weight:700}
+.info .en{color:var(--muted);font-size:12px;margin-top:1px}
+.info p{margin:8px 0 0;font-size:12.5px;max-width:65ch}
+.info .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.chip{font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid var(--line2);color:var(--muted)}
+.chip.fl{color:var(--fg)}
+.info .meta{margin-top:10px;font-size:11.5px;color:var(--muted);display:grid;gap:3px}
+.empty{color:var(--dim);font-size:12.5px}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(5,8,10,.6);display:grid;place-items:center;z-index:10;padding:16px}
+.dlg{background:var(--panel);border:1px solid var(--line2);border-radius:10px;width:min(760px,100%);max-height:88vh;overflow:auto;padding:18px 20px}
+.dlg h2{margin:0 0 4px;font-size:16px}
+.dlg .sub{color:var(--muted);font-size:12px;margin:0 0 12px}
+.form{display:grid;grid-template-columns:minmax(0,1fr) 110px 70px;gap:6px 10px;align-items:center}
+.form .k{font-size:12.5px}
+.form input{background:var(--bg);border:1px solid var(--line2);border-radius:var(--r);padding:4px 6px;width:100%;font-family:var(--mono)}
+.form .derived{grid-column:1/-1;color:var(--muted);font-size:11.5px;margin:-2px 0 4px}
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.vres{display:grid;gap:6px}
+.vres .it{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel2)}
+.vres .it b{font-weight:600}
+.vres .it .d{color:var(--muted);font-size:12px;font-family:var(--mono);margin-top:2px;word-break:break-word}
+.pass{color:var(--ok)}.fail{color:var(--bad)}
+.toast{position:absolute;left:50%;top:50px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:600;z-index:5}
+.load{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
+
+
+/* 기기 내부 보기 */
+.dgrp{font-size:11px;color:var(--dim);margin:8px 0 3px}
+.dgrp:first-child{margin-top:0}
+#devlist .btn{margin-bottom:4px;width:100%}
+#dpane{display:none}
+.app.detail .pane.left>*:not(#dpane){display:none!important}
+.app.detail #dpane{display:block}
+.view.detail .toolbar,.view.detail .hint,.view.detail #labels{display:none}
+#dlabels{position:absolute;inset:0;pointer-events:none}
+.dvhead{position:absolute;left:12px;top:12px;right:12px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+.dvhead .tt{background:rgba(18,24,28,.9);border:1px solid var(--line2);border-radius:8px;padding:7px 12px;pointer-events:auto}
+.dvhead .tt b{display:block;font-size:14.5px}
+.dvhead .tt i{font-style:normal;color:var(--muted);font-size:11.5px}
+.dvhead .sp{flex:1}
+.dvhead .acts{display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+.tbtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#dpane .prin p{margin:0 0 8px;font-size:12.5px;line-height:1.55}
+#dvParts{display:grid;gap:3px;max-height:260px;overflow:auto}
+#dvParts .dp{display:flex;justify-content:space-between;gap:8px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:12px}
+#dvParts .dp i{font-style:normal;color:var(--dim);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dvParts .dp.on{border-color:var(--accent);background:#2a2a22}
+#dvSel h3{margin:0;font-size:14px}#dvSel .en{color:var(--muted);font-size:11.5px}#dvSel p{margin:6px 0 0;font-size:12.5px}
+#dvSrc{margin:0;padding-left:16px;display:grid;gap:4px;font-size:11.5px}
+#dvSrc a{color:var(--accent)}
+
+@media (max-width: 1100px){ .app{grid-template-columns:260px minmax(0,1fr) 290px} }
+@media (max-width: 900px){
+  body{overflow:auto}
+  .app{display:flex;flex-direction:column;height:auto;padding-inline:0}
+  .view{height:68vh;min-height:420px;order:1}
+  .pane.left{order:2;border-right:0}
+  .pane.right{order:3;border-left:0}
+  .pane{overflow:visible;padding-inline:0}
+  .transport{position:absolute;left:8px;right:8px;bottom:8px;padding:8px}
+  .legend{display:none}
+  .hint{display:none}
+}
+@media (prefers-reduced-motion: reduce){ .btn,.tbtn{transition:none} }
+</style>
+
+<div class="app" id="app">
+  <aside class="pane left" aria-label="탐색">
+    <div class="brand">
+      <h1>ME-C 2행정 크로스헤드 엔진</h1>
+      <p>MAN B&amp;W ME-C 계열 참고 · 6기통 교육용 구조 모델</p>
+      <span class="plate">6 × Ø600 / 2400 · ME-C (교육용)</span>
+    </div>
+    <div class="sec">
+      <h2>화면 <small>계통별 보기</small></h2>
+      <div class="seg" id="presets"></div>
+    </div>
+    <div class="sec">
+      <h2>기기 내부 구조 <small>단면 · 동작 · 유동</small></h2>
+      <div id="devlist"></div>
+    </div>
+    <div id="dpane">
+      <div class="sec"><button class="btn" id="dvClose2" style="width:100%">← 엔진 전체로 돌아가기</button></div>
+      <div class="sec"><h2>작동 원리</h2><div class="prin" id="dvPrin"></div></div>
+      <div class="sec"><h2>조작</h2><div id="dvCtl"></div><label class="chk" style="margin-top:6px"><input type="checkbox" id="dvLbl" checked> 내부 부품 라벨</label></div>
+      <div class="sec"><h2>내부 부품 <small>클릭하면 강조</small></h2><div id="dvSel"></div><div id="dvParts" style="margin-top:8px"></div></div>
+      <div class="sec"><h2>현재 상태 <small>엔진과 동기</small></h2><dl class="kv" id="dvKv"></dl></div>
+      <div class="sec"><h2>자료 근거</h2><ul id="dvSrc"></ul></div>
+    </div>
+    <div class="sec">
+      <h2>보기 방식</h2>
+      <div class="seg c3" id="viewmodes">
+        <button class="btn" data-v="solid">외형</button>
+        <button class="btn on" data-v="section">단면</button>
+        <button class="btn" data-v="ghost">외함 반투명</button>
+      </div>
+      <div id="cutbox" style="margin-top:10px">
+        <div class="seg c2" id="cutaxis">
+          <button class="btn on" data-a="z">횡단면 (실린더 직각)</button>
+          <button class="btn" data-a="x">종단면 (크랭크축 방향)</button>
+        </div>
+        <div class="row" style="margin-top:8px"><label for="cutpos">절단 위치</label><input type="range" id="cutpos" min="0" max="1000" value="0"><span class="val" id="cutposv">#1</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>흐름 표시 <small>범례 겸 켜기/끄기</small></h2>
+      <div class="grid2" id="flows"></div>
+      <label class="chk" style="margin-top:6px"><input type="checkbox" id="pipesGhost" checked> 배관 반투명 (내부 흐름 보기)</label>
+      <p class="empty" style="margin:6px 0 0;font-size:11.5px">입자와 화살표는 흐름 방향과 밸브·포트 개폐를 보여 주는 개념 표현이며 유체 해석(CFD) 결과가 아닙니다. 흐름이 멈춘 구간의 입자는 흐리게 표시됩니다.</p>
+    </div>
+    <div class="sec">
+      <h2>부품 표시</h2>
+      <div class="grid2" id="cats"></div>
+      <label class="chk" style="margin-top:6px"><input type="checkbox" id="labelsOn" checked> 부품 라벨 표시</label>
+      <label class="chk"><input type="checkbox" id="labelsAll"> 모든 실린더 라벨 (기본: 절단 실린더만)</label>
+      <div style="margin-top:8px">
+        <input class="search" id="psearch" type="search" placeholder="부품 검색 (한국어/영문)" aria-label="부품 검색">
+        <div class="plist" id="plist"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>모델 교체 <small>GLB / glTF</small></h2>
+      <p class="empty" style="margin:0 0 8px">부품을 선택한 뒤 .glb 파일을 지정하면 같은 운동 슬롯에 상세 모델이 들어갑니다.</p>
+      <div class="seg c2">
+        <label class="btn" for="glbfile">GLB 불러오기</label>
+        <button class="btn" id="glbreset">원래 형상</button>
+      </div>
+      <input type="file" id="glbfile" accept=".glb,.gltf" hidden>
+    </div>
+  </aside>
+
+  <main class="view" id="view">
+    <canvas id="gl" aria-label="엔진 3D 보기"></canvas>
+    <div id="labels"></div>
+    <div id="dlabels"></div>
+    <div class="dvhead" id="dview" hidden>
+      <div class="tt"><b id="dvTitle"></b><i id="dvSub"></i></div><div class="sp"></div>
+      <div class="acts"><button class="tbtn on" id="dvCutBtn">단면</button><button class="tbtn" id="dvHome">초기 시점</button><button class="tbtn" id="dvClose">엔진으로 돌아가기</button></div>
+    </div>
+    <div class="load" id="loading">3D 모델과 엔진 정상 상태를 계산하는 중…</div>
+    <div class="hint">드래그 회전 · 휠 확대 · 우클릭 드래그 이동 · 부품 클릭 시 확대</div>
+    <div class="toolbar">
+      <button class="tbtn" id="fitAll">전체 맞춤</button>
+      <button class="tbtn" id="homeView">초기 시점</button>
+      <button class="tbtn" id="openCfg">타이밍 설정</button>
+      <button class="tbtn" id="openVerify">자동 검증</button>
+      <button class="tbtn" id="openNotes">자료 근거</button>
+    </div>
+    <div class="transport">
+      <button class="play" id="play" aria-label="재생/일시정지"><svg viewBox="0 0 16 16" id="playIcon"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></button>
+      <div class="grp"><label for="speed">재생 속도</label><input type="range" id="speed" min="0" max="100" value="38" style="width:90px"><span class="val" id="speedv">0.10×</span></div>
+      <div class="grp grow"><label for="crank">크랭크각</label><input type="range" id="crank" min="0" max="3600" value="0"><span class="val" id="crankv">0.0°</span></div>
+      <div class="grp"><label for="refcyl">기준</label><select id="refcyl"></select></div>
+      <div class="grp"><label for="rpm">RPM</label><input type="range" id="rpm" min="20" max="110" value="90" style="width:76px"><span class="val" id="rpmv" style="min-width:48px">90</span></div>
+      <div class="grp"><label for="load">부하</label><input type="range" id="load" min="0" max="100" value="75" style="width:76px"><span class="val" id="loadv" style="min-width:40px">75%</span></div>
+    </div>
+  </main>
+
+  <aside class="pane right" aria-label="상태와 부품 정보">
+    <div class="sec">
+      <h2>작동 상태 <small id="cylname">실린더 #1</small></h2>
+      <div class="phase" id="phase"><span class="dot"></span><span>—</span></div>
+      <svg class="dial" id="dial" viewBox="-150 -132 300 264" role="img" aria-label="크랭크각 타이밍 다이어그램"></svg>
+      <dl class="kv" id="kv"></dl>
+    </div>
+    <div class="sec">
+      <h2>실린더 압력 <small>0D 열역학 계산</small></h2>
+      <canvas class="chart" id="pchart" width="600" height="300" aria-label="실린더 압력 선도"></canvas>
+      <h2 style="margin-top:12px">가스 교환 압력 <small>90°–270° 확대</small></h2>
+      <canvas class="chart" id="rchart" width="600" height="260" aria-label="소기·배기 리시버 압력 맥동"></canvas>
+      <div class="lgd"><span><i style="background:var(--air)"></i>소기 리시버</span><span><i style="background:var(--exh)"></i>배기 리시버 (6기통 맥동)</span><span><i class="dash" style="--c:var(--accent)"></i>실린더</span></div>
+    </div>
+    <div class="sec">
+      <h2>실린더 내부 유동 <small>2D 단면 근사</small></h2>
+      <div class="ramp"><span class="bar mix"></span><span class="ends"><b>연소가스</b><b>미연소 공기</b></span></div>
+      <div class="ramp"><span class="bar heat"></span><span class="ends"><b>1000 K</b><b>2600 K (흑체색)</b></span></div>
+      <dl class="kv" id="kv3"></dl>
+      <p class="empty" style="margin:8px 0 0;font-size:11.5px">실린더 중심 단면의 2D 유동 계산(이동 피스톤 경계, 포트·배기밸브 유량은 0D 모델 값)입니다. 3D CFD가 아니며 수치는 교육용 근사입니다. 무늬는 계산된 속도장을 따라 흐릅니다.</p>
+    </div>
+    <div class="sec">
+      <h2>엔진 전체 <small>0D · 평균값 모델</small></h2>
+      <dl class="kv" id="kv2"></dl>
+    </div>
+    <div class="sec info" id="info"><p class="empty">부품을 클릭하면 명칭, 역할, 연결 계통이 여기에 표시됩니다.</p></div>
+  </aside>
+</div>
+<div class="modal" id="modal" hidden><div class="dlg" id="dlg"></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
