@@ -1,13 +1,18 @@
 # ME-C 엔진 단면 시뮬레이터
 
+### [▶ 바로 실행하기 (설치 필요 없음)](https://samuel1123334.github.io/me-c-engine-simulator/)
+
+PC 브라우저(Chrome·Edge·Firefox·Safari 최신판)에서 가장 잘 보입니다. 휴대폰에서도 열리지만 화면이 좁습니다.
+
 MAN B&W ME-C 계열 2행정 크로스헤드 선박용 디젤 엔진(6기통, 보어 600 mm · 행정 2400 mm)을 브라우저에서 돌려 보는 **교육용 3D 단면 시뮬레이터**입니다. 화면은 한국어이고, 부품 이름은 한국어와 영어를 함께 씁니다.
 
 *An educational, browser-based 3D cutaway simulator of a MAN B&W ME-C type two-stroke crosshead marine diesel engine (Three.js, Korean UI with English part names). Not affiliated with MAN Energy Solutions — see the disclaimer below.*
 
-## 바로 실행하기
+## 실행 방법
 
-- `docs/index.html`을 내려받아 브라우저로 열면 됩니다. 설치할 것은 없고, Three.js와 글꼴은 CDN에서 불러오므로 인터넷 연결이 필요합니다.
-- 이 저장소의 **Settings → Pages**에서 `main` 브랜치의 `/docs` 폴더를 배포하면 웹 주소로 바로 쓸 수 있습니다.
+- **웹에서 바로**: 위의 [바로 실행하기](https://samuel1123334.github.io/me-c-engine-simulator/) 링크를 누르면 됩니다.
+- **내 컴퓨터에서**: `docs/index.html` 파일 하나만 내려받아 브라우저로 열어도 됩니다. Three.js와 글꼴을 CDN에서 불러오므로 인터넷 연결은 필요합니다.
+- **사용법**: 왼쪽에서 계통별 화면과 「기기 내부 구조」를 고르고, 아래 재생 막대로 크랭크각·회전수·부하를 바꿉니다. 부품을 클릭하면 설명이 나오고, 오른쪽 위 「자동 검증」으로 모델 점검 결과를 볼 수 있습니다.
 
 ## 주요 기능
 
