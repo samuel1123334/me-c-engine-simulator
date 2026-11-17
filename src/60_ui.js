@@ -159,7 +159,7 @@ function updateLabels() {
     v.copy(p).project(camera);
     if (v.z > 1 || v.x < -1.05 || v.x > 1.05 || v.y < -1.05 || v.y > 1.05) { rec.el.hidden = true; continue; }
     const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * Hh;
-    const bw = 10 + w.P.ko.length * 7, bh = 22;
+    const bw = 10 + textW(w.P.ko), bh = 22;
     const r = { x0: x - bw / 2, x1: x + bw / 2, y0: y - bh - 6, y1: y - 2 };
     if (w.pri > 0 && placed.some(q => !(r.x1 < q.x0 || r.x0 > q.x1 || r.y1 < q.y0 || r.y0 > q.y1))) { rec.el.hidden = true; continue; }
     placed.push(r);
@@ -251,7 +251,8 @@ function drawPulse(th) {
 }
 // ---- Readouts ----
 const PH_COL = { inj: 'var(--fuel)', exp: 'var(--comb)', blow: 'var(--exh)', scav: 'var(--air)', scav2: 'var(--air)', post: 'var(--exh)', comp: 'var(--muted)' };
-const tag = t => `<span class="tag ${t}">${{ calc: 'calc', edu: 'edu', ref: 'ref', m0d: '0D calc', m2d: '2D approx.' }[t]}</span>`;
+const TAG_LABEL = LANG === 'ko' ? { calc: '\uacc4\uc0b0', edu: '\uad50\uc721\uc6a9', ref: '\ucc38\uace0', m0d: '0D \uacc4\uc0b0', m2d: '2D \uadfc\uc0ac' } : { calc: 'calc', edu: 'edu', ref: 'ref', m0d: '0D calc', m2d: '2D approx.' };
+const tag = t => `<span class="tag ${t}">${TAG_LABEL[t]}</span>`;
 function updateReadouts(T) {
   const k = SIM.state.ref, th = wrap360(T - cylOffsets()[k]), load = SIM.state.load;
   const ph = M.phase(th, load), lift = M.evLift01(th), pf = M.portFrac(th), inj = M.inj01(th, load);
@@ -308,12 +309,12 @@ function updateReadouts(T) {
 
 // ---- Presets ----
 const PRESETS = [
-  { id: 'all', ko: 'Overall structure', en: 'engine + all systems', view: 'section', flows: 'all', cam: () => [V3(16, 14, 34), V3(-0.5, 7.0, 0)] },
-  { id: 'cyl', ko: 'In-cylinder', en: 'cycle · injection · scavenging', view: 'section', flows: ['air', 'fuel', 'comb', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(2.0, 7.9, z + 10.8), V3(0, 7.45, z)]; } },
-  { id: 'airexh', ko: 'Air · exhaust', en: 'turbocharger · cooler · receivers', view: 'ghost', flows: ['air', 'exh'], cam: () => [V3(-19, 15, 19), V3(-2.3, 8.6, -0.4)] },
-  { id: 'fuel', ko: 'Fuel supply', en: 'service tank → fuel valves', view: 'solid', flows: ['fuel', 'oil'], cam: () => [V3(20, 12, 20), V3(3.4, 4.2, 0.6)] },
-  { id: 'ctrl', ko: 'Control oil · HCU', en: 'FIVA · booster · actuator', view: 'solid', flows: ['oil', 'fuel', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(6.2, 10.4, z + 5.6), V3(1.0, 8.4, z)]; } },
-  { id: 'boiler', ko: 'Exhaust gas boiler', en: 'gas side · water/steam side separate', view: 'ghost', flows: ['exh', 'water', 'steam'], cam: () => [V3(-12.5, 18.5, 13.5), V3(-5.0, 14.0, -0.5)] },
+  { id: 'all', ko: 'Overall structure', sub: 'engine + all systems', view: 'section', flows: 'all', cam: () => [V3(16, 14, 34), V3(-0.5, 7.0, 0)] },
+  { id: 'cyl', ko: 'In-cylinder', sub: 'cycle · injection · scavenging', view: 'section', flows: ['air', 'fuel', 'comb', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(2.0, 7.9, z + 10.8), V3(0, 7.45, z)]; } },
+  { id: 'airexh', ko: 'Air · exhaust', sub: 'turbocharger · cooler · receivers', view: 'ghost', flows: ['air', 'exh'], cam: () => [V3(-19, 15, 19), V3(-2.3, 8.6, -0.4)] },
+  { id: 'fuel', ko: 'Fuel supply', sub: 'service tank → fuel valves', view: 'solid', flows: ['fuel', 'oil'], cam: () => [V3(20, 12, 20), V3(3.4, 4.2, 0.6)] },
+  { id: 'ctrl', ko: 'Control oil · HCU', sub: 'FIVA · booster · actuator', view: 'solid', flows: ['oil', 'fuel', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(6.2, 10.4, z + 5.6), V3(1.0, 8.4, z)]; } },
+  { id: 'boiler', ko: 'Exhaust gas boiler', sub: 'gas side · water/steam side separate', view: 'ghost', flows: ['exh', 'water', 'steam'], cam: () => [V3(-12.5, 18.5, 13.5), V3(-5.0, 14.0, -0.5)] },
 ];
 function applyPreset(id) {
   const p = PRESETS.find(q => q.id === id);
@@ -420,11 +421,10 @@ function placeTransport() {
 function initMobile() {
   $('mtabs').onclick = e => { const b = e.target.closest('[data-t]'); if (b) setMtab(b.dataset.t); };
   setMtab('views'); placeTransport();
-  if (isMobile()) { SIM.labelsOn = false; $('labelsOn').checked = false; $('dvLbl').checked = false; }   // small screen: labels off by default (Parts tab / device panel to turn on)
   MOBILE.addEventListener('change', placeTransport);
 }
 function buildUI() {
-  $('presets').innerHTML = PRESETS.map(p => `<button class="btn wide" data-p="${p.id}"><span>${p.ko}</span><span>${p.en}</span></button>`).join('');
+  $('presets').innerHTML = PRESETS.map(p => `<button class="btn wide" data-p="${p.id}"><span>${p.ko}</span><span>${p.sub}</span></button>`).join('');
   $('presets').onclick = e => { const b = e.target.closest('[data-p]'); if (b) applyPreset(b.dataset.p); };
   $('viewmodes').onclick = e => { const b = e.target.closest('[data-v]'); if (b) setViewMode(b.dataset.v); };
   $('cutaxis').onclick = e => { const b = e.target.closest('[data-a]'); if (!b) return; if (b.dataset.a === 'z') cutToCyl(SIM.state.ref); else setCut('x', 0.5); if (SIM.view !== 'section') setViewMode('section'); };

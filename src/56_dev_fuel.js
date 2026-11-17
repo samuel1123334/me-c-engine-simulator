@@ -366,7 +366,7 @@ defDevice('ffilter', {
 // ---------------- Pressure control valve (return side, holds upstream pressure) ----------------
 defDevice('pcv', {
   ko: 'Fuel pressure control valve', en: 'Fuel pressure control valve (back-pressure)', sys: 'Fuel supply system', parts: ['pcv'],
-  principle: `<p>A spring-loaded back-pressure valve at the end of the engine fuel return line that keeps the <b>upstream (engine inlet) pressure</b>constant. When the force of inlet pressure lifting the valve disc exceeds the spring force, it opens and lets the surplus fuel flow to the venting tank (about 4 bar).</p>
+  principle: `<p>A spring-loaded back-pressure valve at the end of the engine fuel return line that keeps the <b>upstream (engine inlet) pressure</b> constant. When the force of inlet pressure lifting the valve disc exceeds the spring force, it opens and lets the surplus fuel flow to the venting tank (about 4 bar).</p>
   <p>When engine consumption rises, the return flow falls and the valve closes a little; when consumption falls it opens further. This holds the engine inlet pressure at about 7–8 bar so the hot fuel does not vaporise and the booster suction valves fill properly.</p>`,
   sources: [
     { t: 'ref', text: 'MAN B&W Project Guide · Fuel oil system: engine inlet pressure 7–8 bar, pressure control valve on the return side', url: 'https://www.man-es.com/applications/projectguides/2stroke/content/printed/S60ME-C10_5.pdf' },

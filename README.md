@@ -2,6 +2,8 @@
 
 ### [▶ Launch the simulator (no install needed)](https://samuel1123334.github.io/me-c-engine-simulator/)
 
+**한국어판:** [한국어로 열기](https://samuel1123334.github.io/me-c-engine-simulator/ko.html) — or press the 「한국어」 button at the top of the simulator (「English」 switches back).
+
 Works in current desktop browsers (Chrome, Edge, Firefox, Safari) and on phones. On a phone the 3D view stays fixed at the top with the playback bar under it, and the controls are grouped into tabs (Views · Devices · Parts · State · Info) that scroll on their own.
 
 An **educational 3D cutaway simulator** of a MAN B&W ME-C type two-stroke crosshead marine diesel engine (6 cylinders, bore 600 mm · stroke 2400 mm) that runs in the browser. Not affiliated with MAN Energy Solutions — see the disclaimer below.
@@ -27,10 +29,10 @@ An **educational 3D cutaway simulator** of a MAN B&W ME-C type two-stroke crossh
 
 ```bash
 npm install        # local Three.js (not needed for the build; used for offline testing)
-npm run build      # src/ → dist/engine.html, docs/index.html
+npm run build      # src/ → dist/engine.html, docs/index.html (English), docs/ko.html (Korean)
 ```
 
-The files in `src/` are concatenated in name order into a single HTML file.
+The files in `src/` are concatenated in name order into a single HTML file. The source is written in English; the Korean edition is generated at build time from the string table in `i18n/ko.json` (English UI string → Korean), so when you add or change UI text, add the Korean entry there too.
 
 | File | Contents |
 |---|---|

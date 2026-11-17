@@ -105,7 +105,7 @@ defDevice('hps', {
 // ---------------- Automatic back-flushing filter ----------------
 defDevice('autofilter', {
   ko: 'Automatic back-flushing filter', en: 'Automatic back-flushing filter', sys: 'Control oil (hydraulic) system', parts: ['autofilter'],
-  principle: `<p>Filter for the system oil going to the HPS (10 µm, educational). Oil enters from below and is filtered as it flows from the <b>inside to the outside</b>of the filter candles arranged in a ring; clean oil leaves from the space outside the candles in the housing.</p>
+  principle: `<p>Filter for the system oil going to the HPS (10 µm, educational). Oil enters from below and is filtered as it flows from the <b>inside to the outside</b> of the filter candles arranged in a ring; clean oil leaves from the space outside the candles in the housing.</p>
   <p>When dirt builds up inside the candles and the differential pressure reaches the set point (or after a set time), the flushing arm at the bottom starts turning. When the arm comes under a candle’s inlet, only that candle is connected to the drain (low pressure), so clean oil from outside flows <b>backwards</b> through it and washes the dirt down. The other candles keep filtering meanwhile, so the flow is never interrupted.</p>
   <p>The flushing oil goes to a drain tank, and a redundant filter (25 µm, educational) in series after this filter covers a failure of the automatic filter.</p>`,
   sources: [
@@ -215,7 +215,7 @@ defDevice('accum', {
 // ---------------- FIVA valve ----------------
 defDevice('fiva', {
   ko: 'FIVA valve', en: 'FIVA valve (Fuel Injection & Valve Actuation)', sys: 'Control oil (hydraulic) system', parts: ['fiva', 'hcu', 'mpc'],
-  principle: `<p>FIVA is an electronic proportional control valve, one per cylinder; a single valve controls both <b>fuel injection</b>(driving the booster) and <b>exhaust valve opening and closing</b>(driving the actuator). The cylinder control unit (CCU/MPC) sends commands timed by the crank angle encoder.</p>
+  principle: `<p>FIVA is an electronic proportional control valve, one per cylinder; a single valve controls both <b>fuel injection</b> (driving the booster) and <b>exhaust valve opening and closing</b> (driving the actuator). The cylinder control unit (CCU/MPC) sends commands timed by the crank angle encoder.</p>
   <p>A pilot valve (proportional solenoid) changes the pressure at either end of the main spool to move it, and an LVDT on the end of the main spool feeds back its actual position. With the main spool to one side (+), P → booster (Cfi); to the other side (−), P → exhaust valve actuator (Cva); in the middle (0), both outlets are open to tank, so the booster returns and the exhaust valve closes on its air spring.</p>`,
   sources: [
     { t: 'ref', text: 'MAN B&W ME engine · FIVA valve, HCU, ECS', url: 'https://wordpress-sxaew.wasmer.app/?p=589' },
@@ -270,7 +270,7 @@ defDevice('fiva', {
 // ---------------- Fuel pressure booster ----------------
 defDevice('fpb', {
   ko: 'Fuel pressure booster', en: 'Fuel oil pressure booster', sys: 'Fuel · control oil system', parts: ['fpb', 'hpfuel'],
-  principle: `<p>ME engines have no cam-driven fuel pumps; this booster on the HCU creates the injection pressure. When FIVA sends control oil (200–300 bar) to the lower <b>hydraulic piston</b>, the slim <b>fuel plunger</b>above it rises with it and compresses the fuel. Pressure is multiplied by the ratio of the two areas (3.3, educational), giving an injection pressure of 300 bar × 3.3 ≈ 1000 bar.</p>
+  principle: `<p>ME engines have no cam-driven fuel pumps; this booster on the HCU creates the injection pressure. When FIVA sends control oil (200–300 bar) to the lower <b>hydraulic piston</b>, the slim <b>fuel plunger</b> above it rises with it and compresses the fuel. Pressure is multiplied by the ratio of the two areas (3.3, educational), giving an injection pressure of 300 bar × 3.3 ≈ 1000 bar.</p>
   <p>The fuel chamber above the plunger is connected by the HP pipe to the two fuel valves in the cylinder cover. When injection ends, FIVA opens the space under the hydraulic piston to tank, and fuel supply pressure (about 8 bar) refills the fuel chamber through the suction non-return valve, pushing the piston back down. A piston position sensor reports the actual stroke to the ECS to confirm the injected quantity.</p>
   <p>An umbrella seal and sealing oil stop fuel leaking into the control oil.</p>`,
   sources: [
@@ -328,7 +328,7 @@ defDevice('fpb', {
 // ---------------- Exhaust valve actuator ----------------
 defDevice('evactuator', {
   ko: 'Exhaust valve actuator', en: 'Exhaust valve actuator', sys: 'Control oil system', parts: ['evactuator', 'hpoil_ev'],
-  principle: `<p>The actuator on the HCU uses control oil from FIVA to push the <b>hydraulic piston</b>, and the <b>high-pressure piston</b>above it pushes a column of oil through the HP pipe to the hydraulic cylinder of the exhaust valve on the cylinder cover. That oil column pushes the exhaust valve spindle down against the air spring and opens it.</p>
+  principle: `<p>The actuator on the HCU uses control oil from FIVA to push the <b>hydraulic piston</b>, and the <b>high-pressure piston</b> above it pushes a column of oil through the HP pipe to the hydraulic cylinder of the exhaust valve on the cylinder cover. That oil column pushes the exhaust valve spindle down against the air spring and opens it.</p>
   <p>When FIVA switches to drain, the air spring closes the spindle and pushes the oil column back, bringing the piston down. The actuator stroke and exhaust valve lift follow the same curve.</p>`,
   sources: [
     { t: 'ref', text: 'MAN B&W ME · Exhaust valve actuator & HCU', url: 'https://wordpress-sxaew.wasmer.app/?p=589' },

@@ -6,7 +6,7 @@
 defDevice('fuelvalve', {
   ko: 'Fuel valve (slide type)', en: 'Fuel valve (slide type)', sys: 'Fuel system · cylinder cover', parts: ['fuelvalve', 'nozzle'],
   principle: `<p>Fuel valves, two per cylinder cover (three on large engines). When the booster raises fuel pressure above the <b>opening pressure (about 350–380 bar)</b>, fuel pushing on the underside of the spindle overcomes the closing spring and lifts the spindle.</p>
-  <p>In the MAN B&W <b>slide type</b>, a <b>cut-off shaft</b>sits inside the slide (nozzle tip) that carries the spray holes, and blocks the inside of the holes when closed. So there is almost no fuel volume below the holes (sac volume), which cuts after-dripping, soot and NOx at the end of injection. The spray holes are angled in the direction of the swirl in the combustion chamber.</p>
+  <p>In the MAN B&W <b>slide type</b>, there is a <b>cut-off shaft</b> inside the slide (nozzle tip) that carries the spray holes, and it blocks the inside of the holes when closed. So there is almost no fuel volume below the holes (sac volume), which cuts after-dripping, soot and NOx at the end of injection. The spray holes are angled in the direction of the swirl in the combustion chamber.</p>
   <p>When injection ends and the pressure falls, the spring closes the spindle. While the engine is stopped, low-pressure fuel circulates through the valve to keep it warm.</p>`,
   sources: [
     { t: 'ref', text: 'MAN B&W · Slide fuel valve (sac-free), opening pressure', url: 'https://marinediesels.info/2_stroke_engine_parts/Other_info/fuel_valve.htm' },
@@ -108,7 +108,7 @@ defDevice('exhvalve', {
 defDevice('cooler', {
   ko: 'Scavenge air cooler · water mist catcher', en: 'Scavenge air cooler & water mist catcher', sys: 'Scavenge air system', parts: ['cooler', 'mist', 'chamber'],
   principle: `<p>Air leaving the turbocharger compressor is heated by compression to around 150–200 °C. The cooler is a bundle of closely finned tubes: cooling water (fresh water) makes several passes inside the tubes while the air passes down between the fins and cools. The air becomes denser, so more air can be delivered at the same scavenge pressure.</p>
-  <p>When the air cools below its dew point, water vapour condenses into droplets. The <b>Water mist catcher</b>below the cooler uses zigzag vanes to turn the flow sharply, so heavy droplets hit the vanes and are collected, and the water drains away. Droplets entering the cylinders would wash off the oil film and increase liner wear.</p>`,
+  <p>When the air cools below its dew point, water vapour condenses into droplets. The <b>Water mist catcher</b> below the cooler uses zigzag vanes to turn the flow sharply, so heavy droplets hit the vanes and are collected, and the water drains away. Droplets entering the cylinders would wash off the oil film and increase liner wear.</p>`,
   sources: [
     { t: 'ref', text: 'MAN B&W Project Guide · Scavenge air system: air cooler, water mist catcher', url: 'https://www.man-es.com/applications/projectguides/2stroke/content/printed/S60ME-C10_5.pdf' },
     { t: 'ref', text: 'marinediesels.info · Scavenge air coolers', url: 'https://marinediesels.info/2_stroke_engine_parts/Other_info/scavenge_air_cooler.htm' },
@@ -154,7 +154,7 @@ defDevice('cooler', {
 defDevice('auxblower', {
   ko: 'Auxiliary blower', en: 'Auxiliary blower', sys: 'Scavenge air system', parts: ['auxblower', 'checkv'],
   principle: `<p>At low load and when starting, exhaust energy is small and the turbocharger alone cannot give enough scavenge pressure. Then an electric centrifugal blower draws air again after the cooler and blows it into the scavenge receiver to make up the scavenge pressure.</p>
-  <p>As the impeller turns, the air between the blades is thrown outwards, gaining speed and pressure, and the spiral volute turns the speed into pressure. The <b>check valve (flap)</b>at the blower outlet stops scavenge air flowing back into the blower when it is stopped. The blower starts automatically when scavenge pressure falls below a set value and stops when it rises.</p>`,
+  <p>As the impeller turns, the air between the blades is thrown outwards, gaining speed and pressure, and the spiral volute turns the speed into pressure. The <b>check valve (flap)</b> at the blower outlet stops scavenge air flowing back into the blower when it is stopped. The blower starts automatically when scavenge pressure falls below a set value and stops when it rises.</p>`,
   sources: [
     { t: 'ref', text: 'MAN B&W Project Guide · Auxiliary blowers (automatic start/stop, check valves)', url: 'https://www.man-es.com/applications/projectguides/2stroke/content/printed/S60ME-C10_5.pdf' },
     { t: 'edu', text: `Start/stop scavenge pressure ${CFG.auxOn}/${CFG.auxOff} bar g, speed and number of blades are educational assumptions` }],

@@ -182,7 +182,7 @@ function detailLabels() {
     if (DV.cut && DV.plane.distanceToPoint(v) < -0.02 && !L.anchor) v.z = -0.001;
     v.project(DV.cam);
     if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) { el.hidden = true; return; }
-    const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H, bw = 12 + L.info.ko.length * 7, bh = 22;
+    const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H, bw = 12 + textW(L.info.ko), bh = 22;
     const r = { x0: x - bw / 2, x1: x + bw / 2, y0: y - bh - 6, y1: y - 2 };
     const sel = DV.sel === L.mesh;
     if (!sel && (x < 8 || placed.some(q => !(r.x1 < q.x0 || r.x0 > q.x1 || r.y1 < q.y0 || r.y0 > q.y1)))) { el.hidden = true; return; }

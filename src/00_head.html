@@ -81,6 +81,7 @@ select{background:var(--panel2);border:1px solid var(--line2);border-radius:var(
 .legend{position:absolute;left:12px;bottom:84px;background:rgba(18,24,28,.88);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:11.5px;max-width:240px}
 .legend .li{display:flex;align-items:center;gap:7px;padding:1px 0}
 .legend .note{color:var(--dim);font-size:10.5px;margin-top:5px;line-height:1.35}
+a.tbtn{text-decoration:none;text-align:center;font-weight:600;color:var(--accent)}
 .toolbar{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
 .tbtn{border:1px solid var(--line2);background:rgba(18,24,28,.9);border-radius:var(--r);padding:6px 9px;cursor:pointer;font-size:12px;text-align:left}
 .tbtn:hover{border-color:var(--muted)}
@@ -287,6 +288,7 @@ select{background:var(--panel2);border:1px solid var(--line2);border-radius:var(
     <div class="load" id="loading">Building the 3D model and computing the engine steady state…</div>
     <div class="hint">Drag to orbit · wheel to zoom · right-drag to pan · click a part to zoom in</div>
     <div class="toolbar">
+      <a class="tbtn" id="langBtn" href="ko.html" hreflang="ko" lang="ko" title="한국어로 보기">한국어</a>
       <button class="tbtn" id="fitAll">Fit all</button>
       <button class="tbtn" id="homeView">Home view</button>
       <button class="tbtn" id="openCfg">Timing settings</button>
