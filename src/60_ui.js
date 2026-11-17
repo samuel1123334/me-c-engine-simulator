@@ -5,10 +5,10 @@ const SIM = {
   state: { theta: 0, playing: true, speed: 0.1, rpm: 90, load: 0.75, aux: false, ref: 0 },
   view: 'section', sel: null, labelsOn: true, labelsAll: false, tcAngle: 0, fanAngle: 0,
 };
-function updateAux() { SIM.state.aux = ENGS.aux; }   // 보조 송풍기 기동·정지는 평균값 모델의 소기압으로 결정
-// 운전 조건이 바뀌면 현재 리시버 상태로 즉시 한 사이클을 다시 계산 (터보는 이후 시간에 따라 따라옴)
+function updateAux() { SIM.state.aux = ENGS.aux; }   // Auxiliary blower start/stop decided by the mean-value model’s scavenge pressure
+// When the operating point changes, recompute one cycle immediately from the current receiver state (the turbo follows over time)
 function operatingChanged() { ENGS.dirty = true; evalCycle(); updateAux(); buildDial(); pCurveKey = ''; }
-// ---- 기계 운동: 모든 변환은 크랭크각 Θ의 함수 ----
+// ---- Mechanical motion: every transform is a function of crank angle Θ ----
 function applyMechanics(T) {
   const offs = cylOffsets(), H = M.headY();
   MOV.crank.rotation.z = -wrap360(T) * DEG;
@@ -19,7 +19,7 @@ function applyMechanics(T) {
     MOV.rod[k].position.y = y; MOV.rod[k].rotation.z = M.rodAngle(th);
     MOV.spindle[k].position.y = H - M.evLift01(th) * CFG.evLiftMax;
   }
-  if (MOV.hpsGear) MOV.hpsGear.rotation.z = -2 * wrap360(T) * DEG;   // 체인 감속비 2:1 (교육용)
+  if (MOV.hpsGear) MOV.hpsGear.rotation.z = -2 * wrap360(T) * DEG;   // chain reduction 2:1 (educational)
 }
 function applyAuxParts(dt) {
   const aux = SIM.state.aux;
@@ -29,7 +29,7 @@ function applyAuxParts(dt) {
   (MOV.fans || []).forEach(f => f.rotation.z = SIM.fanAngle);
 }
 
-// ---- 시각 상태 ----
+// ---- Visual state ----
 function setViewMode(v) {
   SIM.view = v;
   CLIP.arr.length = 0; if (v === 'section') CLIP.arr.push(CLIP.plane);
@@ -49,7 +49,7 @@ function setCut(axis, t) {
   CLIP.axis = axis; const [a, b] = CUT[axis]; CLIP.pos = lerp(a, b, t);
   if (axis === 'z') CLIP.plane.set(V3(0, 0, -1), CLIP.pos); else CLIP.plane.set(V3(-1, 0, 0), CLIP.pos);
   let lab;
-  if (axis === 'z') { const k = Math.round(2.5 - CLIP.pos / CFG.pitch); lab = (k >= 0 && k < CFG.nCyl && Math.abs(LY.zc(k) - CLIP.pos) < 0.12) ? '#' + (k + 1) + ' 중심' : 'z ' + CLIP.pos.toFixed(2); }
+  if (axis === 'z') { const k = Math.round(2.5 - CLIP.pos / CFG.pitch); lab = (k >= 0 && k < CFG.nCyl && Math.abs(LY.zc(k) - CLIP.pos) < 0.12) ? '#' + (k + 1) + ' centre' : 'z ' + CLIP.pos.toFixed(2); }
   else lab = 'x ' + CLIP.pos.toFixed(2);
   $('cutposv').textContent = lab; $('cutpos').value = Math.round(t * 1000);
   document.querySelectorAll('#cutaxis .btn').forEach(b => b.classList.toggle('on', b.dataset.a === axis));
@@ -63,7 +63,7 @@ function applyVisibility() {
 }
 function isShown(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
 
-// ---- 카메라 이동 ----
+// ---- Camera moves ----
 const CAM = { anim: null };
 function flyTo(pos, tgt, dur = 0.9) {
   CAM.anim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: tgt.clone(), t: 0, dur };
@@ -81,7 +81,7 @@ function homeView(fly = true) {
 }
 function fitAll() { const b = new THREE.Box3().setFromObject(ENG); const d = camera.position.clone().sub(controls.target); fitBox(b, d.lengthSq() > 0 ? d : V3(0.3, 0.2, 1), 1.0); }
 
-// ---- 선택 · 정보 ----
+// ---- Selection · info ----
 const HL = new Map();
 function hlMat(m) {
   if (HL.has(m)) return HL.get(m);
@@ -97,19 +97,20 @@ function select(id, inst, fly = true) {
     if (fly) { const b = instBox(inst); if (!b.isEmpty()) { const d = camera.position.clone().sub(controls.target); fitBox(b, d, 1.6); } }
   }
   renderInfo(); renderPartList();
+  if (id && fly && isMobile() && !DV.open) setMtab('info');
 }
 function renderInfo() {
   const el = $('info');
-  if (!SIM.sel) { el.innerHTML = '<p class="empty">부품을 클릭하면 명칭, 역할, 연결 계통이 여기에 표시됩니다.</p>'; return; }
+  if (!SIM.sel) { el.innerHTML = '<p class="empty">Click a part to see its name, role and connected systems here.</p>'; return; }
   const P = PARTS[SIM.sel.id], inst = SIM.sel.inst;
-  const posTxt = { img: '기준으로 삼은 엔진 단면도에 표기된 부품 · 위치와 비율을 그림에서 참고', add: '그림에 없는 부품 · 교육용으로 추가 배치', mod: '그림 표기를 ME-C 자료 기준으로 변경' }[P.pos];
+  const posTxt = { img: 'Shown on the reference engine cutaway drawing · position and proportions taken from the drawing', add: 'Not on the drawing · added for teaching', mod: 'Drawing label changed to match ME-C documents' }[P.pos];
   const flows = P.sys.map(s => `<span class="chip fl">${SYS[s]}</span>`).join('');
-  const glb = inst.glb ? '상세 모델(GLB) 적용 중' : '절차적 형상 (교육용 단순화)';
-  el.innerHTML = `<h3>${P.ko}</h3><div class="en">${P.en}${inst.cyl != null ? ' · 실린더 #' + (inst.cyl + 1) : ''}</div>
-    <p>${P.desc}</p><div class="chips">${flows || '<span class="chip">연결 계통 없음</span>'}</div>
-    <div class="meta"><div>분류: ${CATS[P.cat]}</div><div>위치 근거: ${posTxt}</div><div>형상: ${glb}</div><div>GLB 슬롯 ID: <code>${P.id}</code></div></div>
-    <div class="seg c2" style="margin-top:10px"><button class="btn" id="infoZoom">다시 확대</button><button class="btn" id="infoHide">이 부품 숨기기</button></div>
-    ${DEV_OF[P.id] ? `<button class="btn on" id="infoDetail" style="width:100%;margin-top:6px">내부 구조 보기 · ${DEVICES[DEV_OF[P.id]].ko}</button>` : ''}`;
+  const glb = inst.glb ? 'Detailed model (GLB) in use' : 'Procedural shape (simplified for teaching)';
+  el.innerHTML = `<h3>${P.ko}</h3><div class="en">${altName(P.en, P.ko)}${altName(P.en, P.ko) && inst.cyl != null ? ' · ' : ''}${inst.cyl != null ? 'Cylinder #' + (inst.cyl + 1) : ''}</div>
+    <p>${P.desc}</p><div class="chips">${flows || '<span class="chip">No connected system</span>'}</div>
+    <div class="meta"><div>Category: ${CATS[P.cat]}</div><div>Location basis: ${posTxt}</div><div>Shape: ${glb}</div><div>GLB slot ID: <code>${P.id}</code></div></div>
+    <div class="seg c2" style="margin-top:10px"><button class="btn" id="infoZoom">Zoom again</button><button class="btn" id="infoHide">Hide this part</button></div>
+    ${DEV_OF[P.id] ? `<button class="btn on" id="infoDetail" style="width:100%;margin-top:6px">View internals · ${DEVICES[DEV_OF[P.id]].ko}</button>` : ''}`;
   if (DEV_OF[P.id]) $('infoDetail').onclick = () => detailOpen(DEV_OF[P.id]);
   $('infoZoom').onclick = () => select(SIM.sel.id, SIM.sel.inst, true);
   $('infoHide').onclick = () => { P.visible = false; applyVisibility(); renderPartList(); };
@@ -118,16 +119,16 @@ function renderPartList() {
   const q = ($('psearch').value || '').trim().toLowerCase();
   const el = $('plist');
   el.innerHTML = Object.values(PARTS).filter(P => !q || P.ko.toLowerCase().includes(q) || P.en.toLowerCase().includes(q)).map(P =>
-    `<div class="pitem${SIM.sel && SIM.sel.id === P.id ? ' sel' : ''}" data-id="${P.id}"><input type="checkbox" ${P.visible ? 'checked' : ''} aria-label="${P.ko} 표시"><span>${P.ko}</span><span class="en">${P.en}</span></div>`).join('');
+    `<div class="pitem${SIM.sel && SIM.sel.id === P.id ? ' sel' : ''}" data-id="${P.id}"><input type="checkbox" ${P.visible ? 'checked' : ''} aria-label="Show ${P.ko}"><span>${P.ko}</span><span class="en">${altName(P.en, P.ko)}</span></div>`).join('');
 }
 function pickInst(P) { return P.inst.find(i => i.cyl === SIM.state.ref) || P.inst.find(i => i.cyl == null) || P.inst[0]; }
 
-// ---- 라벨 ----
+// ---- Labels ----
 const LBL = new Map();
 function labelFor(P, inst) {
   const key = P.id + '|' + P.inst.indexOf(inst);
   if (LBL.has(key)) return LBL.get(key);
-  const d = document.createElement('div'); d.className = 'lbl'; d.innerHTML = `<b>${P.ko}</b><i>${P.en}</i>`;
+  const d = document.createElement('div'); d.className = 'lbl'; d.innerHTML = `<b>${P.ko}</b>`;
   d.onclick = e => { e.stopPropagation(); select(P.id, inst); };
   $('labels').appendChild(d);
   const rec = { el: d, P, inst, shown: false };
@@ -158,7 +159,7 @@ function updateLabels() {
     v.copy(p).project(camera);
     if (v.z > 1 || v.x < -1.05 || v.x > 1.05 || v.y < -1.05 || v.y > 1.05) { rec.el.hidden = true; continue; }
     const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * Hh;
-    const bw = 8 + Math.max(w.P.ko.length * 11.5, w.P.en.length * 5.6), bh = 30;
+    const bw = 10 + w.P.ko.length * 7, bh = 22;
     const r = { x0: x - bw / 2, x1: x + bw / 2, y0: y - bh - 6, y1: y - 2 };
     if (w.pri > 0 && placed.some(q => !(r.x1 < q.x0 || r.x0 > q.x1 || r.y1 < q.y0 || r.y0 > q.y1))) { rec.el.hidden = true; continue; }
     placed.push(r);
@@ -168,7 +169,7 @@ function updateLabels() {
   LBL.forEach(rec => { if (!used.has(rec)) rec.el.hidden = true; });
 }
 
-// ---- 피킹 ----
+// ---- Picking ----
 const ray = new THREE.Raycaster();
 function pick(cx, cy) {
   const rect = canvas.getBoundingClientRect();
@@ -179,7 +180,7 @@ function pick(cx, cy) {
     const m = o.material; if (!m) return false;
     if (m.opacity !== undefined && m.transparent && m.opacity < 0.05) return false;
     if (m.clippingPlanes && m.clippingPlanes.length && !clipKeeps(h.point)) return false;
-    if (o.userData.part === 'combvol') { const u = m.uniforms; if (u.show.value < 0.5 || h.point.y < u.crown.value || h.point.y > u.head.value) return false; }   // 셰이더에서 버린 영역 제외
+    if (o.userData.part === 'combvol') { const u = m.uniforms; if (u.show.value < 0.5 || h.point.y < u.crown.value || h.point.y > u.head.value) return false; }   // exclude areas discarded by the shader
     return true;
   });
   if (!hits.length) return null;
@@ -190,7 +191,7 @@ function pick(cx, cy) {
   return { id, inst, point: h.point };
 }
 
-// ---- 타이밍 다이얼 · 압력 차트 ----
+// ---- Timing dial · pressure charts ----
 function polar(a, r) { return [r * Math.sin(a * DEG), -r * Math.cos(a * DEG)]; }
 function arcPath(a0, a1, r) { if (a1 < a0) a1 += 360; const [x0, y0] = polar(a0, r), [x1, y1] = polar(a1, r); const large = (a1 - a0) > 180 ? 1 : 0; return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${large} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`; }
 function buildDial() {
@@ -207,9 +208,9 @@ function buildDial() {
     ${lab(0, 116, 'TDC', 'var(--fg)')}${lab(180, 116, 'BDC', 'var(--fg)')}
     ${lab(CFG.evo, 118, 'EO ' + CFG.evo + '°', 'var(--exh)')}${lab(CFG.evc, 118, 'EC ' + CFG.evc + '°', 'var(--exh)')}
     ${lab(po - 8, 58, 'PO ' + po.toFixed(0) + '°', 'var(--air)')}${lab(pc + 8, 58, 'PC ' + pc.toFixed(0) + '°', 'var(--air)')}
-    <text x="0" y="-8" fill="var(--muted)" font-size="9" text-anchor="middle" font-family="var(--sans)">크랭크각</text>
+    <text x="0" y="-8" fill="var(--muted)" font-size="9" text-anchor="middle" font-family="var(--sans)">Crank angle</text>
     <text id="dialv" x="0" y="10" fill="var(--fg)" font-size="17" text-anchor="middle" font-family="var(--mono)">0.0°</text>
-    <text x="0" y="26" fill="var(--dim)" font-size="8" text-anchor="middle" font-family="var(--sans)">점선: 소기·배기 중첩</text>
+    <text x="0" y="26" fill="var(--dim)" font-size="8" text-anchor="middle" font-family="var(--sans)">dotted: scavenge/exhaust overlap</text>
     <g id="needle"><line x1="0" y1="-36" x2="0" y2="-104" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/><circle cy="-104" r="4" fill="var(--accent)"/></g>`;
 }
 let pCurve = null, pCurveKey = '', rcv = null;
@@ -231,7 +232,7 @@ function drawChart(th) {
   g.fillStyle = '#8a989e'; g.fillText('bar abs', W - 86, pad.t + 16);
   drawPulse(th);
 }
-// 소기 리시버 · 배기 리시버 · 실린더 압력 (가스 교환 구간 확대)
+// Scavenge receiver · exhaust receiver · cylinder pressure (gas exchange zoomed)
 function drawPulse(th) {
   const cv = $('rchart'); if (!cv || !rcv) return;
   const g = cv.getContext('2d'), W = cv.width, Hc = cv.height, off = cylOffsets()[SIM.state.ref], n = rcv.px.length, dth = 360 / n;
@@ -248,9 +249,9 @@ function drawPulse(th) {
   line(a => at(rcv.ps, a) / 1e5, '#3d8bfd', 2.5); line(a => at(rcv.px, a) / 1e5, '#e5484d', 2.5); line(a => TQ.p(a), '#e8ddbf', 2, [6, 4]);
   const a = wrap360(th); if (a >= 90 && a <= 270) { g.strokeStyle = '#8a989e'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(a), pad.t); g.lineTo(X(a), pad.t + ph); g.stroke(); }
 }
-// ---- 상태 표시 ----
+// ---- Readouts ----
 const PH_COL = { inj: 'var(--fuel)', exp: 'var(--comb)', blow: 'var(--exh)', scav: 'var(--air)', scav2: 'var(--air)', post: 'var(--exh)', comp: 'var(--muted)' };
-const tag = t => `<span class="tag ${t}">${{ calc: '계산', edu: '교육용', ref: '참고', m0d: '0D 계산', m2d: '2D 근사' }[t]}</span>`;
+const tag = t => `<span class="tag ${t}">${{ calc: 'calc', edu: 'edu', ref: 'ref', m0d: '0D calc', m2d: '2D approx.' }[t]}</span>`;
 function updateReadouts(T) {
   const k = SIM.state.ref, th = wrap360(T - cylOffsets()[k]), load = SIM.state.load;
   const ph = M.phase(th, load), lift = M.evLift01(th), pf = M.portFrac(th), inj = M.inj01(th, load);
@@ -259,60 +260,60 @@ function updateReadouts(T) {
   $('dialv').textContent = th.toFixed(1) + '°';
   const st = (open, txt) => `<span class="state${open ? ' open' : ''}"><i></i>${txt}</span>`;
   const mi = pf > 0 ? TQ.get(ENGS.cyc.out.mIn, th) : 0, mo = lift > 0 ? TQ.get(ENGS.cyc.out.mOut, th) : 0;
-  const flowTxt = (m, open) => !open ? '0' : (m < 0 ? '역류 ' : '') + Math.abs(m).toFixed(1) + ' kg/s';
+  const flowTxt = (m, open) => !open ? '0' : (m < 0 ? 'backflow ' : '') + Math.abs(m).toFixed(1) + ' kg/s';
   $('kv').innerHTML = `
-    <dt>크랭크각 (실린더 #${k + 1})</dt><dd>${th.toFixed(1)}°${tag('calc')}</dd>
-    <dt>피스톤 위치 (상사점 기준)</dt><dd>${(M.pistonFromTDC(th) * 1000).toFixed(0)} mm${tag('calc')}</dd>
-    <dt>소기 포트 개방률</dt><dd>${st(pf > 0, (pf * 100).toFixed(0) + ' %')}${tag('calc')}</dd>
-    <dt>배기밸브</dt><dd>${st(lift > 0, lift > 0 ? '열림 ' + (lift * CFG.evLiftMax * 1000).toFixed(0) + ' mm' : '닫힘')}${tag('edu')}</dd>
-    <dt>연료 분사</dt><dd>${st(inj > 0, inj > 0 ? '분사 중' : '대기')}${tag('calc')}</dd>
-    <dt>실린더 압력</dt><dd>${TQ.p(th).toFixed(1)} bar${tag('m0d')}</dd>
-    <dt>평균 가스 온도</dt><dd>${Math.round(TQ.T(th) - 273)} °C${tag('m0d')}</dd>
-    <dt>연소 진행률</dt><dd>${(Math.min(1, TQ.xf(th)) * 100).toFixed(0)} %${tag('m0d')}</dd>
-    <dt>포트 / 배기밸브 유량</dt><dd>${flowTxt(mi, pf > 0)} / ${flowTxt(mo, lift > 0)}${tag('m0d')}</dd>
-    <dt>커넥팅 로드 각</dt><dd>${(M.rodAngle(th) / DEG).toFixed(1)}°${tag('calc')}</dd>`;
+    <dt>Crank angle (cylinder #${k + 1})</dt><dd>${th.toFixed(1)}°${tag('calc')}</dd>
+    <dt>Piston position (from TDC)</dt><dd>${(M.pistonFromTDC(th) * 1000).toFixed(0)} mm${tag('calc')}</dd>
+    <dt>Scavenge port opening</dt><dd>${st(pf > 0, (pf * 100).toFixed(0) + ' %')}${tag('calc')}</dd>
+    <dt>Exhaust valve</dt><dd>${st(lift > 0, lift > 0 ? 'Open ' + (lift * CFG.evLiftMax * 1000).toFixed(0) + ' mm' : 'Closed')}${tag('edu')}</dd>
+    <dt>fuel injection</dt><dd>${st(inj > 0, inj > 0 ? 'injecting' : 'Standby')}${tag('calc')}</dd>
+    <dt>Cylinder pressure</dt><dd>${TQ.p(th).toFixed(1)} bar${tag('m0d')}</dd>
+    <dt>Mean gas temperature</dt><dd>${Math.round(TQ.T(th) - 273)} °C${tag('m0d')}</dd>
+    <dt>Burn progress</dt><dd>${(Math.min(1, TQ.xf(th)) * 100).toFixed(0)} %${tag('m0d')}</dd>
+    <dt>Port / exhaust valve flow</dt><dd>${flowTxt(mi, pf > 0)} / ${flowTxt(mo, lift > 0)}${tag('m0d')}</dd>
+    <dt>Connecting rod angle</dt><dd>${(M.rodAngle(th) / DEG).toFixed(1)}°${tag('calc')}</dd>`;
   const rpm = SIM.state.rpm, sp = SIM.state.speed, S = TQ.summary();
   const bal = (ENGS.Pt - ENGS.Pc - 0.0178 * (ENGS.N * 2 * Math.PI / 60) ** 2) / Math.max(2e4, ENGS.Pc);
-  const trans = Math.abs(bal) < 0.02 ? st(true, '정상 상태') : `<span class="state"><i style="background:var(--warn)"></i>${bal > 0 ? '터보 가속 중' : '터보 감속 중'}</span>`;
+  const trans = Math.abs(bal) < 0.02 ? st(true, 'Steady state') : `<span class="state"><i style="background:var(--warn)"></i>${bal > 0 ? 'Turbo accelerating' : 'Turbo decelerating'}</span>`;
   $('kv2').innerHTML = `
-    <dt>회전수 · 부하 (설정)</dt><dd>${rpm} r/min · ${Math.round(load * 100)} %</dd>
-    <dt>화면 재생 속도</dt><dd>${sp.toFixed(sp < 0.1 ? 3 : 2)}× → 화면상 ${(rpm * sp).toFixed(1)} r/min</dd>
-    <dt>터보차저 상태</dt><dd>${trans}</dd>
-    <dt>터보차저 회전수</dt><dd>${ENGS.N > 50 ? Math.round(ENGS.N).toLocaleString('ko-KR') + ' r/min' : '정지'}${tag('m0d')}</dd>
-    <dt>소기 리시버 압력</dt><dd>${(ENGS.ps / 1e5).toFixed(2)} bar abs${tag('m0d')}</dd>
-    <dt>배기 리시버 압력</dt><dd>${(ENGS.px / 1e5).toFixed(2)} bar abs${tag('m0d')}</dd>
-    <dt>공기 유량 · 압력비</dt><dd>${ENGS.mdC.toFixed(1)} kg/s · ${Math.max(1, TCM.pi(ENGS.N, ENGS.mdC)).toFixed(2)}${tag('m0d')}</dd>
-    <dt>터빈 / 압축기 동력</dt><dd>${(ENGS.Pt / 1e6).toFixed(2)} / ${(ENGS.Pc / 1e6).toFixed(2)} MW${tag('m0d')}</dd>
-    <dt>보조 송풍기</dt><dd>${st(ENGS.aux, ENGS.aux ? '운전 (플랩 닫힘)' : '정지 (플랩 열림)')}${tag('m0d')}</dd>
-    <dt>지시 출력 · IMEP</dt><dd>${(S.Pi / 1000).toFixed(1)} MW · ${S.imep.toFixed(1)} bar${tag('m0d')}</dd>
-    <dt>최고 압력 Pmax</dt><dd>${S.pmax.toFixed(0)} bar @ ${S.thPmax.toFixed(0)}°${tag('m0d')}</dd>
-    <dt>공기 과잉률 λ (전체)</dt><dd>${isFinite(S.lambda) ? S.lambda.toFixed(2) : '—'}${tag('m0d')}</dd>
-    <dt>배기 온도 T/C 전→후</dt><dd>${Math.round(S.Tx - 273)} → ${Math.round(S.Tout - 273)} °C${tag('m0d')}</dd>
-    <dt>소기 공기 온도</dt><dd>${Math.round(S.Ts - 273)} °C${tag('m0d')}</dd>
-    <dt>지시 효율 · 벽 열손실</dt><dd>${(S.etaI * 100).toFixed(1)} % · ${(S.qwFrac * 100).toFixed(1)} %${tag('m0d')}</dd>
-    <dt>점화 순서</dt><dd>${CFG.firingOrder.join('-')}${tag('edu')}</dd>`;
+    <dt>Speed · load (set)</dt><dd>${rpm} r/min · ${Math.round(load * 100)} %</dd>
+    <dt>Screen playback speed</dt><dd>${sp.toFixed(sp < 0.1 ? 3 : 2)}× → on screen ${(rpm * sp).toFixed(1)} r/min</dd>
+    <dt>Turbocharger state</dt><dd>${trans}</dd>
+    <dt>Turbocharger speed</dt><dd>${ENGS.N > 50 ? Math.round(ENGS.N).toLocaleString('ko-KR') + ' r/min' : 'Stopped'}${tag('m0d')}</dd>
+    <dt>Scavenge receiver pressure</dt><dd>${(ENGS.ps / 1e5).toFixed(2)} bar abs${tag('m0d')}</dd>
+    <dt>Exhaust receiver pressure</dt><dd>${(ENGS.px / 1e5).toFixed(2)} bar abs${tag('m0d')}</dd>
+    <dt>Air flow · pressure ratio</dt><dd>${ENGS.mdC.toFixed(1)} kg/s · ${Math.max(1, TCM.pi(ENGS.N, ENGS.mdC)).toFixed(2)}${tag('m0d')}</dd>
+    <dt>Turbine / compressor power</dt><dd>${(ENGS.Pt / 1e6).toFixed(2)} / ${(ENGS.Pc / 1e6).toFixed(2)} MW${tag('m0d')}</dd>
+    <dt>Auxiliary blower</dt><dd>${st(ENGS.aux, ENGS.aux ? 'Running (flaps closed)' : 'Stopped (flaps open)')}${tag('m0d')}</dd>
+    <dt>Indicated power · IMEP</dt><dd>${(S.Pi / 1000).toFixed(1)} MW · ${S.imep.toFixed(1)} bar${tag('m0d')}</dd>
+    <dt>Peak pressure Pmax</dt><dd>${S.pmax.toFixed(0)} bar @ ${S.thPmax.toFixed(0)}°${tag('m0d')}</dd>
+    <dt>Excess air ratio λ (overall)</dt><dd>${isFinite(S.lambda) ? S.lambda.toFixed(2) : '—'}${tag('m0d')}</dd>
+    <dt>Exhaust temp. before → after T/C</dt><dd>${Math.round(S.Tx - 273)} → ${Math.round(S.Tout - 273)} °C${tag('m0d')}</dd>
+    <dt>Scavenge air temperature</dt><dd>${Math.round(S.Ts - 273)} °C${tag('m0d')}</dd>
+    <dt>Indicated efficiency · wall heat loss</dt><dd>${(S.etaI * 100).toFixed(1)} % · ${(S.qwFrac * 100).toFixed(1)} %${tag('m0d')}</dd>
+    <dt>Firing order</dt><dd>${CFG.firingOrder.join('-')}${tag('edu')}</dd>`;
   const F = FIELD.cur;
   $('kv3').innerHTML = F ? `
-    <dt title="배기밸브가 닫힐 때 실린더에 갇힌 가스 중 이번 사이클 공급 공기의 비율">소기 효율</dt><dd>${(F.D.etaSc * 100).toFixed(1)} %${tag('m2d')}</dd>
-    <dt title="공급된 공기 중 실린더에 남은 비율">공급 공기 포착률</dt><dd>${(F.D.etaTr * 100).toFixed(1)} %${tag('m2d')}</dd>
-    <dt title="포트로 들어와 그대로 배기밸브로 빠져나간 공기의 비율">단락 손실</dt><dd>${(F.D.short * 100).toFixed(1)} %${tag('m2d')}</dd>
-    <dt title="한 사이클 공급 공기 질량 / (소기 밀도 × 행정체적)">급기비</dt><dd>${S.delivery.toFixed(2)}${tag('m0d')}</dd>
-    <dt>선회 속도</dt><dd>${Math.round(F.omega[Math.floor(th) % 360] * 60 / (2 * Math.PI))} r/min${tag('m2d')}</dd>
-    <dt>계산 상태</dt><dd>${FIELD.busy ? '갱신 계산 중…' : FIELD.status}</dd>` : `<dt>계산 상태</dt><dd>${FIELD.status}</dd>`;
+    <dt title="Share of this cycle’s supplied air in the gas trapped when the exhaust valve closes">Scavenging efficiency</dt><dd>${(F.D.etaSc * 100).toFixed(1)} %${tag('m2d')}</dd>
+    <dt title="Share of the supplied air that stays in the cylinder">Trapping efficiency</dt><dd>${(F.D.etaTr * 100).toFixed(1)} %${tag('m2d')}</dd>
+    <dt title="Share of air that came in through the ports and went straight out of the exhaust valve">Short-circuit loss</dt><dd>${(F.D.short * 100).toFixed(1)} %${tag('m2d')}</dd>
+    <dt title="Air mass supplied per cycle / (scavenge density × swept volume)">Delivery ratio</dt><dd>${S.delivery.toFixed(2)}${tag('m0d')}</dd>
+    <dt>Swirl velocity</dt><dd>${Math.round(F.omega[Math.floor(th) % 360] * 60 / (2 * Math.PI))} r/min${tag('m2d')}</dd>
+    <dt>Calculation status</dt><dd>${FIELD.busy ? 'Updating…' : FIELD.status}</dd>` : `<dt>Calculation status</dt><dd>${FIELD.status}</dd>`;
   $('crankv').textContent = th.toFixed(1) + '°';
   if (!SIM.dragCrank) $('crank').value = Math.round(th * 10);
-  $('cylname').textContent = '실린더 #' + (k + 1);
+  $('cylname').textContent = 'Cylinder #' + (k + 1);
   drawChart(th);
 }
 
-// ---- 프리셋 ----
+// ---- Presets ----
 const PRESETS = [
-  { id: 'all', ko: '전체 구조', en: '엔진 + 전 계통', view: 'section', flows: 'all', cam: () => [V3(16, 14, 34), V3(-0.5, 7.0, 0)] },
-  { id: 'cyl', ko: '실린더 내부', en: '사이클 · 분사 · 소기', view: 'section', flows: ['air', 'fuel', 'comb', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(2.0, 7.9, z + 10.8), V3(0, 7.45, z)]; } },
-  { id: 'airexh', ko: '공기 · 배기', en: '터보차저 · 냉각기 · 리시버', view: 'ghost', flows: ['air', 'exh'], cam: () => [V3(-19, 15, 19), V3(-2.3, 8.6, -0.4)] },
-  { id: 'fuel', ko: '연료 공급', en: '서비스 탱크 → 분사밸브', view: 'solid', flows: ['fuel', 'oil'], cam: () => [V3(20, 12, 20), V3(3.4, 4.2, 0.6)] },
-  { id: 'ctrl', ko: '제어유 · HCU', en: 'FIVA · 부스터 · 액추에이터', view: 'solid', flows: ['oil', 'fuel', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(6.2, 10.4, z + 5.6), V3(1.0, 8.4, z)]; } },
-  { id: 'boiler', ko: '배기가스 보일러', en: '가스측 · 물/증기측 분리', view: 'ghost', flows: ['exh', 'water', 'steam'], cam: () => [V3(-12.5, 18.5, 13.5), V3(-5.0, 14.0, -0.5)] },
+  { id: 'all', ko: 'Overall structure', en: 'engine + all systems', view: 'section', flows: 'all', cam: () => [V3(16, 14, 34), V3(-0.5, 7.0, 0)] },
+  { id: 'cyl', ko: 'In-cylinder', en: 'cycle · injection · scavenging', view: 'section', flows: ['air', 'fuel', 'comb', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(2.0, 7.9, z + 10.8), V3(0, 7.45, z)]; } },
+  { id: 'airexh', ko: 'Air · exhaust', en: 'turbocharger · cooler · receivers', view: 'ghost', flows: ['air', 'exh'], cam: () => [V3(-19, 15, 19), V3(-2.3, 8.6, -0.4)] },
+  { id: 'fuel', ko: 'Fuel supply', en: 'service tank → fuel valves', view: 'solid', flows: ['fuel', 'oil'], cam: () => [V3(20, 12, 20), V3(3.4, 4.2, 0.6)] },
+  { id: 'ctrl', ko: 'Control oil · HCU', en: 'FIVA · booster · actuator', view: 'solid', flows: ['oil', 'fuel', 'exh'], cam: () => { const z = LY.zc(SIM.state.ref); return [V3(6.2, 10.4, z + 5.6), V3(1.0, 8.4, z)]; } },
+  { id: 'boiler', ko: 'Exhaust gas boiler', en: 'gas side · water/steam side separate', view: 'ghost', flows: ['exh', 'water', 'steam'], cam: () => [V3(-12.5, 18.5, 13.5), V3(-5.0, 14.0, -0.5)] },
 ];
 function applyPreset(id) {
   const p = PRESETS.find(q => q.id === id);
@@ -325,38 +326,38 @@ function applyPreset(id) {
 }
 function syncFlowChecks() { document.querySelectorAll('#flows input').forEach(i => i.checked = FLOW_ON[i.dataset.f]); }
 
-// ---- 설정 · 자료 근거 · 검증 모달 ----
+// ---- Settings · sources · self-check modals ----
 function openModal(html) { $('dlg').innerHTML = html; $('modal').hidden = false; }
 function closeModal() { $('modal').hidden = true; }
 function openSettings() {
   const F = [
-    ['evo', '배기밸브 개방 시작 (° ATDC)', 'ref'], ['evc', '배기밸브 폐쇄 완료 (° ATDC)', 'edu'], ['soi', '분사 시작 (° , 음수 = BTDC)', 'edu'],
-    ['injDur0', '분사 기간 · 부하 0 % (°)', 'edu'], ['injDur1', '분사 기간 · 부하 100 % (°)', 'edu'], ['ignDelay', '착화 지연 (°)', 'edu'],
-    ['portTopMM', '소기 포트 상단 높이 (BDC 크라운 기준, mm)', 'calc'], ['auxOn', '보조 송풍기 기동 소기압 (bar g)', 'edu'], ['auxOff', '보조 송풍기 정지 소기압 (bar g)', 'edu'],
+    ['evo', 'Exhaust valve opens (° ATDC)', 'ref'], ['evc', 'Exhaust valve fully closed (° ATDC)', 'edu'], ['soi', 'Start of injection (°, negative = BTDC)', 'edu'],
+    ['injDur0', 'Injection duration · 0 % load (°)', 'edu'], ['injDur1', 'Injection duration · 100 % load (°)', 'edu'], ['ignDelay', 'Ignition delay (°)', 'edu'],
+    ['portTopMM', 'Top of scavenge ports (from crown at BDC, mm)', 'calc'], ['auxOn', 'Auxiliary blower start scavenge pressure (bar g)', 'edu'], ['auxOff', 'Auxiliary blower stop scavenge pressure (bar g)', 'edu'],
   ];
   const [po, pc] = M.portAngles();
-  openModal(`<h2>작동 타이밍 설정</h2><p class="sub">모든 값은 크랭크각 공통 기준으로 피스톤 위치, 배기밸브, 분사, 연소 표현에 동시에 반영됩니다. 소기 포트 개폐각은 직접 입력하지 않고 포트 높이와 피스톤 기구학에서 계산됩니다.</p>
+  openModal(`<h2>Timing settings</h2><p class="sub">Every value uses the same crank-angle reference and is applied at once to piston position, exhaust valve, injection and combustion display. Scavenge port timing is not entered directly; it is computed from the port height and the piston kinematics.</p>
     <div class="form">${F.map(([k, l, s]) => `<label class="k" for="cf_${k}">${l}</label><input id="cf_${k}" type="number" step="${k.startsWith('aux') ? 0.01 : 1}" value="${CFG[k]}">${tag(s)}`).join('')}
-    <label class="k" for="cf_fo">점화 순서</label><input id="cf_fo" type="text" value="${CFG.firingOrder.join('-')}">${tag('edu')}
-    <div class="derived" id="cf_der">현재 포트 개방 ${po.toFixed(1)}° / 폐쇄 ${pc.toFixed(1)}° (기하 계산) · 커넥팅 로드 ${CFG.conrod} m, 행정 ${CFG.stroke} m 고정</div></div>
-    <div class="acts"><button class="btn" id="cfReset">기본값</button><button class="btn" id="cfCancel">닫기</button><button class="btn on" id="cfApply">적용</button></div>`);
-  $('cf_portTopMM').oninput = () => { const v = +$('cf_portTopMM').value, old = CFG.portTopMM; CFG.portTopMM = v; const [a, b] = M.portAngles(); CFG.portTopMM = old; $('cf_der').textContent = `포트 개방 ${a.toFixed(1)}° / 폐쇄 ${b.toFixed(1)}° (기하 계산) · 커넥팅 로드 ${CFG.conrod} m, 행정 ${CFG.stroke} m 고정`; };
+    <label class="k" for="cf_fo">Firing order</label><input id="cf_fo" type="text" value="${CFG.firingOrder.join('-')}">${tag('edu')}
+    <div class="derived" id="cf_der">Ports currently open ${po.toFixed(1)}° / close ${pc.toFixed(1)}° (from geometry) · connecting rod ${CFG.conrod} m, stroke ${CFG.stroke} m fixed</div></div>
+    <div class="acts"><button class="btn" id="cfReset">Defaults</button><button class="btn" id="cfCancel">Close</button><button class="btn on" id="cfApply">Apply</button></div>`);
+  $('cf_portTopMM').oninput = () => { const v = +$('cf_portTopMM').value, old = CFG.portTopMM; CFG.portTopMM = v; const [a, b] = M.portAngles(); CFG.portTopMM = old; $('cf_der').textContent = `Ports open ${a.toFixed(1)}° / close ${b.toFixed(1)}° (from geometry) · connecting rod ${CFG.conrod} m, stroke ${CFG.stroke} m fixed`; };
   $('cfCancel').onclick = closeModal;
   $('cfReset').onclick = () => { F.forEach(([k]) => $('cf_' + k).value = CFG_DEFAULT[k]); $('cf_fo').value = CFG_DEFAULT.firingOrder.join('-'); };
   $('cfApply').onclick = () => {
     const nv = {}; F.forEach(([k]) => nv[k] = +$('cf_' + k).value);
     const fo = $('cf_fo').value.split(/[^0-9]+/).filter(Boolean).map(Number);
     const errs = [];
-    if (!(nv.evo > 60 && nv.evo < nv.evc && nv.evc < 330)) errs.push('배기밸브 개방은 60°보다 크고 폐쇄보다 작아야 합니다.');
-    if (!(nv.portTopMM > CFG.portBotMM + 24 && nv.portTopMM < 600)) errs.push('포트 상단 높이는 30~600 mm 범위로 입력하세요.');
-    if (!(nv.injDur0 > 0 && nv.injDur1 >= nv.injDur0 && nv.injDur1 < 60)) errs.push('분사 기간은 0보다 크고 60° 미만이어야 합니다.');
-    if (!(nv.auxOn < nv.auxOff)) errs.push('보조 송풍기 정지 압력은 기동 압력보다 커야 합니다.');
-    if (fo.length !== CFG.nCyl || new Set(fo).size !== CFG.nCyl || fo.some(v => v < 1 || v > CFG.nCyl)) errs.push('점화 순서는 1~6을 한 번씩 포함해야 합니다.');
+    if (!(nv.evo > 60 && nv.evo < nv.evc && nv.evc < 330)) errs.push('Exhaust valve opening must be greater than 60° and less than closing.');
+    if (!(nv.portTopMM > CFG.portBotMM + 24 && nv.portTopMM < 600)) errs.push('Enter a port top height between 30 and 600 mm.');
+    if (!(nv.injDur0 > 0 && nv.injDur1 >= nv.injDur0 && nv.injDur1 < 60)) errs.push('Injection duration must be greater than 0 and less than 60°.');
+    if (!(nv.auxOn < nv.auxOff)) errs.push('Auxiliary blower stop pressure must be higher than the start pressure.');
+    if (fo.length !== CFG.nCyl || new Set(fo).size !== CFG.nCyl || fo.some(v => v < 1 || v > CFG.nCyl)) errs.push('The firing order must contain each of 1–6 exactly once.');
     if (errs.length) { $('cf_der').innerHTML = '<span class="fail">' + errs.join(' ') + '</span>'; return; }
     const portChanged = nv.portTopMM !== CFG.portTopMM;
     Object.assign(CFG, nv); CFG.firingOrder = fo;
     buildTables(); if (portChanged) rebuildPorts();
-    GT4.key = ''; operatingChanged(); closeModal(); toast('타이밍 설정을 적용했습니다 · 0D·유동장 재계산');
+    GT4.key = ''; operatingChanged(); closeModal(); toast('Timing settings applied · 0D and flow field recomputed');
   };
 }
 function rebuildPorts() {
@@ -375,10 +376,10 @@ function rebuildPorts() {
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; viewEl.appendChild(d); setTimeout(() => d.remove(), 1800); }
 
-// ---- GLB 교체 ----
+// ---- GLB replacement ----
 const gltfLoader = new GLTFLoader();
 function applyGLB(buf, name) {
-  if (!SIM.sel) { toast('먼저 교체할 부품을 선택하세요'); return; }
+  if (!SIM.sel) { toast('Select the part to replace first'); return; }
   const P = PARTS[SIM.sel.id];
   gltfLoader.parse(buf, '', gltf => {
     P.inst.forEach(inst => {
@@ -392,8 +393,8 @@ function applyGLB(buf, name) {
       inst.proc.forEach(m => m.visible = false);
       inst.slot.add(obj); inst.glb = obj; inst.anchor = null;
     });
-    toast(`${P.ko}: ${name} 적용`); renderInfo();
-  }, err => toast('GLB를 읽지 못했습니다: ' + (err && err.message || '형식 오류')));
+    toast(`${P.ko}: ${name} applied`); renderInfo();
+  }, err => toast('Could not read the GLB: ' + (err && err.message || 'format error')));
 }
 function resetGLB() {
   if (!SIM.sel) return; const P = PARTS[SIM.sel.id];
@@ -401,8 +402,27 @@ function resetGLB() {
   renderInfo();
 }
 
-// ---- UI 구성 ----
+// ---- UI construction ----
 const speedOf = v => 0.01 * Math.pow(200, v / 100);
+// ---- Phone layout: tabs under a fixed 3D view, transport bar moved below the view ----
+const MOBILE = matchMedia('(max-width: 900px)');
+const isMobile = () => MOBILE.matches;
+function setMtab(t) {
+  const app = $('app'); app.dataset.mtab = t;
+  document.querySelectorAll('#mtabs button').forEach(b => { const on = b.dataset.t === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  document.querySelectorAll('.pane').forEach(p => { p.scrollTop = 0; });
+}
+function placeTransport() {
+  const tb = document.querySelector('.transport');
+  if (isMobile()) { if (tb.parentElement !== $('app')) $('app').insertBefore(tb, $('mtabs')); }
+  else if (tb.parentElement !== viewEl) viewEl.appendChild(tb);
+}
+function initMobile() {
+  $('mtabs').onclick = e => { const b = e.target.closest('[data-t]'); if (b) setMtab(b.dataset.t); };
+  setMtab('views'); placeTransport();
+  if (isMobile()) { SIM.labelsOn = false; $('labelsOn').checked = false; $('dvLbl').checked = false; }   // small screen: labels off by default (Parts tab / device panel to turn on)
+  MOBILE.addEventListener('change', placeTransport);
+}
 function buildUI() {
   $('presets').innerHTML = PRESETS.map(p => `<button class="btn wide" data-p="${p.id}"><span>${p.ko}</span><span>${p.en}</span></button>`).join('');
   $('presets').onclick = e => { const b = e.target.closest('[data-p]'); if (b) applyPreset(b.dataset.p); };
@@ -443,7 +463,7 @@ function buildUI() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); if (e.key === ' ' && e.target === document.body) { e.preventDefault(); $('play').click(); } });
   $('glbfile').onchange = e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => applyGLB(rd.result, f.name); rd.readAsArrayBuffer(f); e.target.value = ''; };
   $('glbreset').onclick = resetGLB;
-  // 클릭 선택
+  // click to select
   let down = null;
   canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
   canvas.style.cursor = 'grab';
@@ -453,10 +473,11 @@ function buildUI() {
     const h = pick(e.clientX, e.clientY); if (h) select(h.id, h.inst); else select(null);
   });
   renderPartList();
-  // 기기 내부 구조 목록
+  // Device internals list
   const groups = {};
   Object.values(DEVICES).forEach(d => { (groups[d.sys] = groups[d.sys] || []).push(d); });
-  $('devlist').innerHTML = Object.entries(groups).map(([g, ds]) => `<div class="dgrp">${g}</div>` + ds.map(d => `<button class="btn wide" data-d="${d.id}"><span>${d.ko}</span><span>${d.en.split(' (')[0]}</span></button>`).join('')).join('');
+  $('devlist').innerHTML = Object.entries(groups).map(([g, ds]) => `<div class="dgrp">${g}</div>` + ds.map(d => `<button class="btn wide" data-d="${d.id}"><span>${d.ko}</span></button>`).join('')).join('');
+  initMobile();
   $('devlist').onclick = e => { const b = e.target.closest('[data-d]'); if (b) detailOpen(b.dataset.d); };
   $('dvClose').onclick = detailClose; $('dvClose2').onclick = detailClose;
   $('dvCutBtn').onclick = () => detailSetCut(!DV.cut);
@@ -464,16 +485,16 @@ function buildUI() {
   $('dvParts').onclick = e => { const b = e.target.closest('.dp'); if (b) detailSelect(DV.labels[+b.dataset.i]); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && DV.open && $('modal').hidden) detailClose(); });
 }
-// 기준 실린더 크랭크각을 지정 → 전체 Θ를 연속적으로 이동 (흐름 적분 포함)
+// Set the reference-cylinder crank angle → move the whole Θ continuously (flow integration included)
 function setRefAngle(a) {
   const off = cylOffsets()[SIM.state.ref];
   const cur = SIM.state.theta;
-  const d = a - wrap360(cur - off);          // 슬라이더 방향 그대로 (앞으로 끌면 정방향)
+  const d = a - wrap360(cur - off);          // same as the slider direction (dragging forward = forward)
   const T1 = cur + d;
   advanceFlows(cur, T1); SIM.state.theta = T1;
-  if (!SIM.noEngineAdvance) advanceEngine(d);   // 수동 조절도 |Δθ| 만큼 모의 시간이 흐름
+  if (!SIM.noEngineAdvance) advanceEngine(d);   // manual scrubbing also advances simulated time by |Δθ|
 }
 function openNotes() {
-  openModal(`<h2>자료 근거와 단순화</h2><p class="sub">시뮬레이터의 값과 형상이 어디에서 왔는지 정리했습니다. 실제 엔진 사양서(Project Guide)와 선박 계통도를 받으면 해당 항목을 교체하면 됩니다.</p>${NOTES_HTML}<div class="acts"><button class="btn on" onclick="document.getElementById('modal').hidden=true">닫기</button></div>`);
+  openModal(`<h2>Sources and simplifications</h2><p class="sub">Where the simulator’s values and shapes come from. With the actual engine specification (Project Guide) and the ship’s system diagrams, the relevant items can be replaced.</p>${NOTES_HTML}<div class="acts"><button class="btn on" onclick="document.getElementById('modal').hidden=true">Close</button></div>`);
 }
 

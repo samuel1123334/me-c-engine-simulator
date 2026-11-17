@@ -1,60 +1,58 @@
-# ME-C 엔진 단면 시뮬레이터
+# ME-C Engine Cutaway Simulator
 
-### [▶ 바로 실행하기 (설치 필요 없음)](https://samuel1123334.github.io/me-c-engine-simulator/)
+### [▶ Launch the simulator (no install needed)](https://samuel1123334.github.io/me-c-engine-simulator/)
 
-PC 브라우저(Chrome·Edge·Firefox·Safari 최신판)에서 가장 잘 보입니다. 휴대폰에서도 열리지만 화면이 좁습니다.
+Works in current desktop browsers (Chrome, Edge, Firefox, Safari) and on phones. On a phone the 3D view stays fixed at the top with the playback bar under it, and the controls are grouped into tabs (Views · Devices · Parts · State · Info) that scroll on their own.
 
-MAN B&W ME-C 계열 2행정 크로스헤드 선박용 디젤 엔진(6기통, 보어 600 mm · 행정 2400 mm)을 브라우저에서 돌려 보는 **교육용 3D 단면 시뮬레이터**입니다. 화면은 한국어이고, 부품 이름은 한국어와 영어를 함께 씁니다.
+An **educational 3D cutaway simulator** of a MAN B&W ME-C type two-stroke crosshead marine diesel engine (6 cylinders, bore 600 mm · stroke 2400 mm) that runs in the browser. Not affiliated with MAN Energy Solutions — see the disclaimer below.
 
-*An educational, browser-based 3D cutaway simulator of a MAN B&W ME-C type two-stroke crosshead marine diesel engine (Three.js, Korean UI with English part names). Not affiliated with MAN Energy Solutions — see the disclaimer below.*
+## How to run
 
-## 실행 방법
+- **On the web**: click the [Launch the simulator](https://samuel1123334.github.io/me-c-engine-simulator/) link above.
+- **On your computer**: download the single file `docs/index.html` and open it in a browser. An internet connection is still needed because Three.js and the fonts load from a CDN.
+- **Using it**: pick a system view or a device under "Device internals" on the left, and use the playback bar at the bottom to change crank angle, speed and load. Click any part for a description; "Self-check" at the top right shows the model checks.
 
-- **웹에서 바로**: 위의 [바로 실행하기](https://samuel1123334.github.io/me-c-engine-simulator/) 링크를 누르면 됩니다.
-- **내 컴퓨터에서**: `docs/index.html` 파일 하나만 내려받아 브라우저로 열어도 됩니다. Three.js와 글꼴을 CDN에서 불러오므로 인터넷 연결은 필요합니다.
-- **사용법**: 왼쪽에서 계통별 화면과 「기기 내부 구조」를 고르고, 아래 재생 막대로 크랭크각·회전수·부하를 바꿉니다. 부품을 클릭하면 설명이 나오고, 오른쪽 위 「자동 검증」으로 모델 점검 결과를 볼 수 있습니다.
+## Features
 
-## 주요 기능
+- **Engine structure and motion**: true crankshaft–connecting rod–crosshead–piston kinematics, firing order 1-5-3-4-2-6, scavenge ports, exhaust valves and fuel injection timed to crank angle
+- **Two-stroke cycle (0D)**: cylinder mass and energy conservation, Wiebe combustion, Woschni heat loss, nozzle flow through ports and valves
+- **Turbocharger matching**: approximate compressor map, turbine ellipse law, rotor inertia, receiver dynamics, automatic start/stop of the auxiliary blowers
+- **2D in-cylinder flow field**: section flow with a moving piston boundary (computed in a Web Worker)
+- **System flows**: scavenge air, exhaust gas, fuel, control oil, boiler water and steam shown as particles, with cutaway and ghost-casing views and a description for every part you click
+- **15 device internal views**: three-screw pumps, venting tank, fuel heater with viscosity control, duplex full-flow filter, pressure control valve, HPS swashplate piston pump, automatic back-flushing filter, HCU accumulator, FIVA valve, fuel pressure booster, exhaust valve actuator, slide-type fuel valve, exhaust valve, scavenge air cooler with water mist catcher, and auxiliary blower. Each opens as a cutaway whose internal parts and flows move with the engine state
+- **15 built-in self-checks** (the "Self-check" button): mechanical return after one turn, playback vs scrubbing consistency, port timing, path connectivity, mass and energy conservation, turbo balance, HCU synchronisation, fuel system balances and more
+- **GLB replacement**: select a part and load a .glb/.gltf file to drop a detailed model into the same motion slot
 
-- **엔진 구조와 운동**: 크랭크축·커넥팅 로드·크로스헤드·피스톤의 실제 기구학, 점화 순서 1-5-3-4-2-6, 크랭크각에 맞춘 소기 포트·배기밸브 개폐와 연료 분사
-- **2행정 사이클 계산 (0D)**: 실린더 질량·에너지 보존, Wiebe 연소, Woschni 열손실, 포트·밸브 노즐 유량
-- **터보차저 매칭**: 압축기 맵 근사, 터빈 유량식, 회전체 관성, 리시버 동역학, 보조 송풍기 자동 기동·정지
-- **실린더 내부 2D 유동장**: 피스톤이 움직이는 경계를 넣은 단면 유동 계산 (Web Worker)
-- **계통 흐름 표시**: 소기 공기·배기가스·연료·제어유·보일러 물·증기를 입자로 표시하고, 단면·외함 반투명 보기와 부품 클릭 시 설명 제공
-- **기기 내부 구조 15종**: 3축 스크루 펌프, 탈기 탱크, 연료 가열기와 점도 제어, 복식 전유량 필터, 압력조절밸브, HPS 사판식 피스톤 펌프, 자동 역세 필터, HCU 축압기, FIVA 밸브, 연료 압력 부스터, 배기밸브 액추에이터, 슬라이드형 분사밸브, 배기밸브, 공기 냉각기·수분 분리기, 보조 송풍기. 각 기기를 단면으로 열어 엔진 상태에 맞춰 움직이는 내부 부품과 유동을 볼 수 있습니다
-- **자동 검증 15항목**: 화면의 「자동 검증」 버튼. 기구 복귀, 재생과 수동 조절의 일치, 포트 개폐, 경로 연결, 질량·에너지 보존, 터보 평형, HCU 동기, 연료 계통 수지 등을 확인합니다
-- **GLB 교체**: 부품을 고른 뒤 .glb/.gltf 파일을 지정하면 같은 운동 위치에 상세 모델을 끼울 수 있습니다
-
-## 직접 수정하고 빌드하기
+## Editing and building
 
 ```bash
-npm install        # 로컬 Three.js (빌드에는 필요 없고, 오프라인 테스트용)
+npm install        # local Three.js (not needed for the build; used for offline testing)
 npm run build      # src/ → dist/engine.html, docs/index.html
 ```
 
-`src/`의 파일을 이름 순서대로 하나의 HTML로 합칩니다.
+The files in `src/` are concatenated in name order into a single HTML file.
 
-| 파일 | 내용 |
+| File | Contents |
 |---|---|
-| `00_head.html` | 화면 구성과 스타일 |
-| `10_model.js` | 치수·타이밍 설정, 기구학 |
-| `15_thermo.js` | 0D 열역학, 터보차저 매칭 |
-| `16_fuelsys.js` | 연료·제어유 계통 상태 (점도, 가열기, 필터, HPS, HCU) |
-| `20_scene.js` ~ `50_flow.js` | 3D 장면, 부품 목록, 엔진 형상, 배관, 2D 유동장, 입자 흐름 |
-| `55_detail.js` ~ `58_dev_valves.js` | 기기 내부 구조 보기 |
-| `60_ui.js`, `70_verify.js`, `80_main.js` | 화면 조작, 자동 검증, 실행 |
+| `00_head.html` | Layout and styles |
+| `10_model.js` | Dimensions, timing settings, kinematics |
+| `15_thermo.js` | 0D thermodynamics, turbocharger matching |
+| `16_fuelsys.js` | Fuel and control oil system state (viscosity, heater, filter, HPS, HCU) |
+| `20_scene.js` – `50_flow.js` | 3D scene, part catalogue, engine geometry, piping, 2D flow field, particle flows |
+| `55_detail.js` – `58_dev_valves.js` | Device internal views |
+| `60_ui.js`, `70_verify.js`, `80_main.js` | User interface, self-checks, start-up |
 
-## 모델의 한계 (꼭 읽어 주세요)
+## Model limitations (please read)
 
-- **교육용입니다.** 모든 압력·온도·유량은 단순화한 모델의 계산값이며 실측값이 아닙니다. 화면에 「참고」, 「계산」, 「0D 계산」, 「2D 근사」, 「교육용」 표시로 근거를 구분해 두었습니다.
-- 부품 형상과 기기 내부 구조는 공개된 작동 원리 자료를 바탕으로 단순화한 것이며 **제조사 도면이 아닙니다.**
-- 공개 자료로 확인한 값(예: 연료 공급 4 bar·순환 10 bar, 주입 점도 약 13 cSt, HPS 200/300 bar, 분사밸브 개변압 350–380 bar)과 교육용으로 정한 값(예: 연료 등급, 펌프 크기, 부스터 면적비, 축압기 체적)은 화면의 「자료 근거」 창과 각 기기의 「자료 근거」 칸에 따로 적었습니다.
-- 실제 엔진의 운전·정비·설계 판단에는 사용하지 마세요. 해당 엔진의 Project Guide, 취급설명서와 제조사 지침을 따르세요.
+- **This is for teaching.** All pressures, temperatures and flows are values computed by simplified models, not measurements. On screen they are tagged "ref", "calc", "0D calc", "2D approx." or "edu" to show where each comes from.
+- Part shapes and device internals are simplified from published descriptions of how they work. **They are not manufacturer drawings.**
+- Values confirmed from public sources (e.g. fuel supply 4 bar / circulation 10 bar, injection viscosity about 13 cSt, HPS 200/300 bar, fuel valve opening pressure 350–380 bar) and values assumed for teaching (e.g. fuel grade, pump sizes, booster area ratio, accumulator volume) are listed separately in the "Sources" window and in each device's "Sources" section.
+- Do not use it for real operating, maintenance or design decisions. Follow the engine's Project Guide, instruction manuals and the manufacturer's guidance.
 
-## 면책
+## Disclaimer
 
-이 프로젝트는 MAN Energy Solutions와 관련이 없으며, 그 회사의 승인이나 지원을 받지 않았습니다. "MAN B&W", "ME-C" 및 본문에 나오는 다른 제품명은 각 소유자의 상표이며, 엔진 형식을 설명하기 위해서만 사용했습니다. 참고 자료의 저작권은 각 출처에 있으며, 이 저장소에는 링크만 있습니다.
+This project is not affiliated with, endorsed by or supported by MAN Energy Solutions. "MAN B&W", "ME-C" and other product names mentioned are trademarks of their respective owners and are used only to describe the engine type. Copyright in the reference material belongs to the respective sources; this repository only links to them.
 
-## 라이선스
+## License
 
-[MIT](LICENSE). 외부 라이브러리 [Three.js](https://threejs.org/)(MIT)와 [IBM Plex](https://github.com/IBM/plex) 글꼴(SIL OFL 1.1)은 실행할 때 CDN에서 불러오며 이 저장소에 포함되어 있지 않습니다.
+[MIT](LICENSE). The external libraries [Three.js](https://threejs.org/) (MIT) and the [IBM Plex](https://github.com/IBM/plex) fonts (SIL OFL 1.1) are loaded from a CDN at run time and are not included in this repository.

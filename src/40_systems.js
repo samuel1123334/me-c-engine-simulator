@@ -1,23 +1,23 @@
 // ===================================================================
-// 40 · SYSTEMS — 계통 부품 + 유로(경로). 경로 양 끝은 유체 종류가 지정된 포트에 연결된다.
-// 같은 Route가 배관 형상과 입자 경로를 동시에 만든다.
+// 40 · SYSTEMS — system parts + flow paths. Each end of a path connects to a port with a defined fluid.
+// The same Route builds both the pipe shape and the particle path.
 // ===================================================================
 const PORTS = {};          // id → { pos, fluid, node }
 const PATHS = [];          // { id, fluid, route, from, to, nodes[], cyl, rate(θ, st), clip, spacing }
 const FLUID = {
-  air: { ko: '소기 공기', color: 0x3d8bfd, css: 'var(--air)', style: 'solid' },
-  fuel: { ko: '연료', color: 0xf2c230, css: 'var(--fuel)', style: 'solid' },
-  comb: { ko: '연소 영역', color: 0xff8a1f, css: 'var(--comb)', style: 'solid' },
-  exh: { ko: '배기가스', color: 0xe5484d, css: 'var(--exh)', style: 'solid' },
-  oil: { ko: '제어유', color: 0xa46bf0, css: 'var(--oil)', style: 'solid' },
-  water: { ko: '보일러 물', color: 0x34c38f, css: 'var(--water)', style: 'dash' },
-  steam: { ko: '증기', color: 0xcfdde6, css: 'var(--steam)', style: 'dot' },
+  air: { ko: 'Scavenge air', color: 0x3d8bfd, css: 'var(--air)', style: 'solid' },
+  fuel: { ko: 'Fuel', color: 0xf2c230, css: 'var(--fuel)', style: 'solid' },
+  comb: { ko: 'Combustion zone', color: 0xff8a1f, css: 'var(--comb)', style: 'solid' },
+  exh: { ko: 'Exhaust gas', color: 0xe5484d, css: 'var(--exh)', style: 'solid' },
+  oil: { ko: 'Control oil', color: 0xa46bf0, css: 'var(--oil)', style: 'solid' },
+  water: { ko: 'Boiler water', color: 0x34c38f, css: 'var(--water)', style: 'dash' },
+  steam: { ko: 'Steam', color: 0xcfdde6, css: 'var(--steam)', style: 'dot' },
 };
 const PIPE_COL = { air: 0x6f8496, fuel: 0x7b6d3c, exh: C.insul, oil: 0x6c5a86, water: 0x4c7a66, steam: 0x9aa6ad };
 function port(id, pos, fluid, node) { PORTS[id] = { id, pos: pos.isVector3 ? pos.clone() : V3(...pos), fluid, node }; return id; }
 const P_ = id => { const p = PORTS[id]; if (!p) throw new Error('port ' + id); return p.pos; };
 
-// legs: [{ pts:[...], r: 배관 반경(0=부품 내부), part, clip }]
+// legs: [{ pts:[...], r: pipe radius (0 = inside a part), part, clip }]
 function flow(id, fluid, legs, o) {
   const all = [];
   const pipes = [];
@@ -42,21 +42,21 @@ const SYSG = new THREE.Group(); SYSG.name = 'systems'; ROOT.add(SYSG);
 
 function buildSystems() {
   const H = M.headY(), N = CFG.nCyl;
-  const X0 = -3.55, Y0 = 8.0;           // 터보차저 축 중심
+  const X0 = -3.55, Y0 = 8.0;           // turbocharger shaft centre
   const st = () => SIM.state;
-  // 배관 입자 속도 = 0D/평균값 모델 질량유량에 비례 (정격 ≈ 1)
+  // Pipe particle speed ∝ mass flow from the 0D/mean-value model (rated ≈ 1)
   const airRate = () => Math.max(0.04, ENGS.mdC / 27);
   const exhRate = () => Math.max(0.04, ENGS.mdT / 27);
   const fuelCirc = () => 0.55;
   const oilRate = () => 0.35 + 0.4 * st().load;
   const wRate = () => 0.15 + 0.6 * st().load;
 
-  // ============ 엔진 장착 부품 (절단 적용) ============
+  // ============ Engine-mounted parts (cut applies) ============
   BUILD_SYS = false;
   const mIns = M_('insul2', { color: C.insul, metal: 0.1, rough: 0.85, housing: true });
   const mCast = M_('cast', { color: C.cast, metal: 0.5, rough: 0.55 });
   const mSteelD = M_('steelD', { color: C.steelD, metal: 0.7, rough: 0.4 });
-  // 배기가스 리시버
+  // Exhaust gas receiver
   const RX = -1.88, RY = 9.75, RR = 0.76;
   {
     const s = slot('exhrec', ENG);
@@ -65,7 +65,7 @@ function buildSystems() {
   }
   for (let k = 0; k < N; k++) { const z = LY.zc(k); port('exhrec.i' + k, [-1.62, 9.7, z], 'exh', 'exhrec'); }
   port('exhrec.o', [-1.95, 9.6, -1.2], 'exh', 'exhrec');
-  // 소기 리시버
+  // Scavenge receiver
   const SX = -1.55, SY = 5.85, SR = 0.62;
   {
     const s = slot('scavrec', ENG);
@@ -74,27 +74,27 @@ function buildSystems() {
   }
   for (let k = 0; k < N; k++) port('scavrec.o' + k, [SX, SY, LY.zc(k)], 'air', 'scavrec');
 
-  // 실린더별 배기·소기·연료·제어유 경로
+  // Exhaust, scavenge, fuel and control oil paths per cylinder
   for (let k = 0; k < N; k++) {
     const z = LY.zc(k), c = MOV.cyl[k];
-    // 포트 정의
+    // Port definitions
     port('evseat' + k, [-0.08, H + 0.05, z - 0.06], 'exh', 'cyl' + k);
     port('portL' + k, [-0.33, 6.09, z - 0.06], 'air', 'cyl' + k);
     port('portR' + k, [0.33, 6.09, z], 'air', 'cyl' + k);
-    // 소기: 리시버 → 소기 박스 → 포트
-    const sc = th => (M.portFrac(th) > 0 && ENGS.cyc) ? TQ.get(ENGS.cyc.out.mIn, th) / 28 : 0;   // 포트 기하로 개폐, 크기는 0D 유입 질량유량
+    // Scavenge: receiver → scavenge box → ports
+    const sc = th => (M.portFrac(th) > 0 && ENGS.cyc) ? TQ.get(ENGS.cyc.out.mIn, th) / 28 : 0;   // opens/closes with port geometry; magnitude = 0D inflow mass rate
     flow('air.box' + k + 'L', 'air', [{ pts: ['scavrec.o' + k, [-0.95, 5.95, z - 0.06], [-0.55, 6.03, z - 0.06], 'portL' + k] }], { from: 'scavrec.o' + k, to: 'portL' + k, nodes: ['scavrec', 'scavbox', 'ports', 'cyl' + k], cyl: k, rate: sc, spacing: 0.1 });
     flow('air.box' + k + 'R', 'air', [{ pts: ['scavrec.o' + k, [-0.95, 5.95, z], [-0.64, 6.0, z - 0.42], [0.58, 6.03, z - 0.42], [0.56, 6.06, z - 0.2], 'portR' + k] }], { from: 'scavrec.o' + k, to: 'portR' + k, nodes: ['scavrec', 'scavbox', 'ports', 'cyl' + k], cyl: k, rate: sc, spacing: 0.1 });
-    // 배기: 밸브 시트 → 하우징 → 배기관 → 리시버
+    // Exhaust: valve seat → housing → exhaust pipe → receiver
     flow('exh.cyl' + k, 'exh', [
       { pts: ['evseat' + k, [-0.12, H + 0.6, z - 0.06], [-0.2, H + 0.86, z - 0.06], [-0.66, H + 0.86, z]] },
       { pts: [[-0.66, H + 0.86, z], [-0.95, 9.42, z], [-1.22, 9.62, z]], r: 0.19, part: 'exhpipe' },
       { pts: [[-1.22, 9.62, z], 'exhrec.i' + k] },
     ], {
       from: 'evseat' + k, to: 'exhrec.i' + k, nodes: ['cyl' + k, 'evspindle', 'exhpipe', 'exhrec'], cyl: k, spacing: 0.12,
-      rate: th => (M.evLift01(th) > 0 && ENGS.cyc) ? TQ.get(ENGS.cyc.out.mOut, th) / 11 : 0,   // 블로다운 급증·역류 포함 (0D 유출 질량유량)
+      rate: th => (M.evLift01(th) > 0 && ENGS.cyc) ? TQ.get(ENGS.cyc.out.mOut, th) / 11 : 0,   // includes blowdown surge and backflow (0D outflow mass rate)
     });
-    // 연료: 공급관 → 부스터 → 고압관 → 분사밸브 2개
+    // Fuel: supply pipe → booster → HP pipe → two fuel valves
     port('rail.b' + k, [1.85, 8.95, z + 0.15], 'fuel', 'fuelrail');
     port('fpb.in' + k, [1.69, 8.52, z + 0.15], 'fuel', 'fpb' + k);
     port('fpb.out' + k, [1.55, 8.75, z + 0.15], 'fuel', 'fpb' + k);
@@ -106,7 +106,7 @@ function buildSystems() {
         : ['fpb.out' + k, [1.55, 9.55, z + 0.15], [0.55, 9.55, z - 0.5], [fv.top.x, 9.55, z - 0.5], [fv.top.x, 9.55, fv.top.z], fv.top];
       flow('fuel.hp' + k + '_' + vi, 'fuel', [{ pts, r: 0.028, part: 'hpfuel' }, { pts: [fv.top, nid] }], { from: 'fpb.out' + k, to: nid, nodes: ['fpb' + k, 'hpfuel', 'fuelvalve', 'cyl' + k], cyl: k, rate: th => M.inj01(th, st().load) * 3.2, spacing: 0.07, rc: 0.08 });
     });
-    // 제어유: 고압관 → HCU(축압기) → FIVA → 부스터 / 배기밸브 액추에이터 → 배기밸브
+    // Control oil: HP pipe → HCU (accumulator) → FIVA → booster / exhaust valve actuator → exhaust valve
     port('ctrl.o' + k, [1.15, 6.62, z], 'oil', 'ctrlrail');
     port('fiva' + k, [1.52, 7.58, z], 'oil', 'fiva' + k);
     port('fpb.hyd' + k, [1.55, 8.12, z + 0.15], 'oil', 'fpb' + k);
@@ -122,16 +122,16 @@ function buildSystems() {
     ], { from: 'fiva' + k, to: 'ev.hyd' + k, nodes: ['fiva' + k, 'evactuator', 'hpoil_ev', 'evact' + k], cyl: k, rate: th => M.evLiftRate(th) * 40, spacing: 0.1, rc: 0.1 });
     flow('oil.drain' + k, 'oil', [{ pts: ['hcu.drain' + k, [1.36, 6.4, z + 0.25], [1.36, 4.05, z + 0.25], 'cc.drain' + k], r: 0.03, part: 'drain' }], { from: 'hcu.drain' + k, to: 'cc.drain' + k, nodes: ['hcu' + k, 'drain', 'crankcase'], cyl: k, rate: () => 0.3, spacing: 0.15 });
   }
-  // 연료 공급·복귀 레일 (엔진 장착)
+  // Fuel supply/return rails (engine-mounted)
   port('rail.in', [1.85, 8.95, 3.2], 'fuel', 'fuelrail');
   port('rail.aft', [2.0, 8.95, -3.25], 'fuel', 'fuelrail');
   flow('fuel.rail', 'fuel', [{ pts: ['rail.in', [1.85, 8.95, -3.25], 'rail.aft'], r: 0.05, part: 'fuelrail' }], { from: 'rail.in', to: 'rail.aft', nodes: ['fuelrail'], rate: fuelCirc, spacing: 0.22 });
-  // 제어유 고압관
+  // Control oil HP pipe
   port('ctrl.in', [1.15, 6.62, -3.0], 'oil', 'ctrlrail');
   port('ctrl.end', [1.15, 6.62, 2.75], 'oil', 'ctrlrail');
   flow('oil.rail', 'oil', [{ pts: ['ctrl.in', 'ctrl.end'], r: 0.075, part: 'ctrlrail' }], { from: 'ctrl.in', to: 'ctrl.end', nodes: ['ctrlrail'], rate: oilRate, spacing: 0.22 });
 
-  // ============ 계통 영역 (절단 미적용) ============
+  // ============ System area (no cut) ============
   BUILD_SYS = true;
   const mSys = M_('sysm', { color: 0x6a7780, metal: 0.45, rough: 0.5 });
   const mSysD = M_('sysd', { color: 0x4b555c, metal: 0.45, rough: 0.55 });
@@ -146,7 +146,7 @@ function buildSystems() {
     s.add(cylY(0.13, y + 0.12, y + 0.55, 24).translate(x, 0, z), mMotor);
     return s;
   };
-  // 바닥판 · 상부 데크 (장식, 선택 불가)
+  // Floor plate · upper deck (decoration, not selectable)
   {
     const fm = new THREE.MeshStandardMaterial({ color: 0x1f272c, metalness: 0.3, roughness: 0.8 });
     const floor = new THREE.Mesh(box(22, 0.05, 11, 1.2, -2.36, 0, 0), fm); ROOT.add(floor);
@@ -154,7 +154,7 @@ function buildSystems() {
     const grid = new THREE.GridHelper(22, 44, 0x2c363d, 0x253036); grid.position.set(1.2, -2.33, 0); grid.scale.set(1, 1, 0.5); ROOT.add(grid);
   }
 
-  // ---- 터보차저 ----
+  // ---- Turbocharger ----
   {
     const tb = slot('tc_body', SYSG);
     const comp = lathe([[0.2, -3.02], [0.62, -3.0], [0.72, -2.9], [0.74, -2.68], [0.72, -2.46], [0.5, -2.36], [0.3, -2.34], [0.2, -2.34]], 64);
@@ -169,7 +169,7 @@ function buildSystems() {
     const fg = lathe([[0.18, -3.78], [0.58, -3.78], [0.62, -3.7], [0.62, -3.1], [0.58, -3.02], [0.18, -3.02]], 56); fg.rotateX(Math.PI / 2); fg.translate(X0, Y0, 0);
     const ribs = Array.from({ length: 24 }, (_, i) => { const g = box(0.02, 0.03, 0.66, 0, 0.635, -3.4, 0.002); g.rotateZ(i * 15 * DEG); g.translate(X0, Y0, 0); return g; });
     fl.add(merge([fg, ...ribs]), M_('filterm', { color: 0x8b9298, metal: 0.4, rough: 0.6, housing: true }));
-    // 회전체 (공통 축)
+    // Rotor (common shaft)
     const rot = new THREE.Group(); rot.position.set(X0, Y0, 0); SYSG.add(rot); MOV.tcRotor = rot;
     const sh = slot('tc_shaft', rot); sh.add(cylZ(0.05, -2.9, -1.05, 16), M_('shaft', { color: C.steelL, metal: 0.9, rough: 0.2, noclip: true }));
     const cw = slot('tc_comp', rot);
@@ -196,7 +196,7 @@ function buildSystems() {
     ], { from: 'exhrec.o', to: 'turb.out', nodes: ['exhrec', 'exhduct', 'tc_turb'], rate: exhRate, clip: false, spacing: 0.16, rc: 0.12 });
   }
 
-  // ---- 공기 냉각기 · 수분 분리기 · 출구 챔버 · 플랩 · 보조 송풍기 ----
+  // ---- Air cooler · water mist catcher · outlet chamber · flaps · auxiliary blowers ----
   {
     const cx = -2.95;
     const cs = slot('cooler', SYSG);
@@ -220,7 +220,7 @@ function buildSystems() {
     const pid = port('chamber.i' + i, [-2.3, 3.35, zl], 'air', 'chamber');
     flow('air.cool' + i, 'air', [{ pts: ['cooler.in', [-2.95, 5.6, zl], [-2.95, 3.8, zl], [-2.95, 3.38, zl], pid] }], { from: 'cooler.in', to: pid, nodes: ['cooler', 'mist', 'chamber'], rate: airRate, clip: false, spacing: 0.2 });
   });
-  // 메인 논리턴 플랩 (보조 송풍기 정지 시 열림)
+  // Main non-return flaps (open while the auxiliary blowers are stopped)
   [-2.5, -1.3, -0.1, 1.5].forEach((zf, i) => {
     const s = slot('flap', SYSG);
     const g = box(0.34, 0.03, 0.34, 0, 0, 0, 0.005); const fl = new THREE.Mesh(g, mSysD);
@@ -231,7 +231,7 @@ function buildSystems() {
     const a = port('chamber.f' + i, [-2.2, 3.5, zf], 'air', 'chamber'), b = port('scavrec.f' + i, [-1.75, 5.72, zf], 'air', 'scavrec');
     flow('air.flap' + i, 'air', [{ pts: [a, [-2.0, 4.6, zf], [-1.95, 5.22, zf], b] }], { from: a, to: b, nodes: ['chamber', 'flap', 'scavrec'], rate: () => st().aux ? 0 : airRate() * 0.75, clip: false, spacing: 0.2 });
   });
-  // 보조 송풍기 2대 + 체크밸브
+  // Two auxiliary blowers + check valves
   [2.15, 0.85].forEach((zB, i) => {
     const s = slot('auxblower', SYSG);
     s.add(merge([cylZ(0.3, zB - 0.18, zB + 0.18, 40).translate(-1.95, 4.1, 0), cylY(0.12, 4.3, 4.62, 20).translate(-1.95, 0, zB)]), mSys);
@@ -249,7 +249,7 @@ function buildSystems() {
     flow('air.blower' + i, 'air', [{ pts: [a, [-1.95, 3.85, zB], [-1.95, 4.1, zB], [-1.95, 4.62, zB], [-1.95, 4.95, zB], [-1.95, 5.3, zB], b] }], { from: a, to: b, nodes: ['chamber', 'auxblower', 'checkv', 'scavrec'], rate: () => st().aux ? airRate() * 1.1 : 0, clip: false, spacing: 0.15 });
   });
 
-  // ---- 배기가스 보일러 (이코노마이저) · 굴뚝 ----
+  // ---- Exhaust gas boiler (economiser) · funnel ----
   const EZ = -0.5, EX0 = -4.65, EX1 = -2.45, EY0 = 12.2, EY1 = 15.25;
   const rowsY = Array.from({ length: 6 }, (_, i) => 12.55 + i * 0.42);
   const serp = zz => { const pts = [[-5.0, rowsY[0], zz]]; rowsY.forEach((y, i) => { const a = i % 2 === 0 ? -4.35 : -2.75, b = i % 2 === 0 ? -2.75 : -4.35; pts.push([a, y, zz], [b, y, zz]); }); pts.push([-5.0, rowsY[5], zz]); return pts; };
@@ -290,7 +290,7 @@ function buildSystems() {
     flow('exh.egbb' + i, 'exh', [{ pts: ['egb.gasIn', [X0 + 0.55 - i * 1.1, 12.35, zl], [X0 + 0.55 - i * 1.1, 15.05, zl], 'egb.gasOut'] }], { from: 'egb.gasIn', to: 'egb.gasOut', nodes: ['egb.gas'], rate: exhRate, clip: false, spacing: 0.17, tint: exGrad });
   });
   flow('exh.funnel', 'exh', [{ pts: ['egb.gasOut', [X0, 17.0, EZ], 'funnel.out'], r: 0.36, part: 'funnel' }], { from: 'egb.gasOut', to: 'funnel.out', nodes: ['egb.gas', 'funnel'], rate: exhRate, clip: false, spacing: 0.22, tint: exGrad });
-  // 물·증기 (별도 유로)
+  // Water · steam (separate passage)
   port('drum.wOut', [-6.6, 15.4, -0.9], 'water', 'drum');
   port('drum.wIn', [-6.1, 15.9, EZ], 'water', 'drum');
   port('drum.feed', [-7.0, 15.9, EZ], 'water', 'drum');
@@ -302,7 +302,7 @@ function buildSystems() {
   flow('water.riser', 'water', [{ pts: ['egb.wOut', [-5.8, rowsY[5], EZ], [-5.8, 15.9, EZ], 'drum.wIn'], r: 0.08, part: 'drum' }], { from: 'egb.wOut', to: 'drum.wIn', nodes: ['egb.water', 'drum'], rate: wRate, clip: false, spacing: 0.15, tint: { steam: true, mix: 0.6 } });
   flow('water.feed', 'water', [{ pts: ['cascade.out', [-7.55, 11.1, EZ]], r: 0.05, part: 'feedpump' }, { pts: [[-7.55, 11.1, EZ], [-7.35, 11.1, EZ], [-7.35, 11.3, EZ]] }, { pts: [[-7.35, 11.3, EZ], [-7.35, 15.9, EZ], 'drum.feed'], r: 0.05, part: 'feedpump' }], { from: 'cascade.out', to: 'drum.feed', nodes: ['cascade', 'feedpump', 'drum'], rate: () => 0.12 + 0.2 * st().load, clip: false, spacing: 0.2 });
 
-  // ---- 연료 공급 계통 (서비스 탱크 → 분사밸브) ----
+  // ---- Fuel supply system (service tank → fuel valves) ----
   {
     const t = slot('servtank', SYSG); t.add(merge([box(1.2, 4.3, 1.2, 8.2, -0.15, 0, 0.03), cylY(0.05, 2.05, 2.4, 12).translate(8.2, 0, 0), box(0.04, 3.4, 0.08, 7.58, -0.2, 0.45, 0.005)]), mTank);
     pump('supplypump', 7.05, -1.9, 0);
@@ -342,7 +342,7 @@ function buildSystems() {
   flow('steam.heater', 'steam', [{ pts: ['drum.sOut', [-6.6, 17.4, EZ], [-6.6, 17.4, -2.3], [5.4, 17.4, -2.3], [5.4, 1.45, -2.3], [5.4, 1.45, -0.3], [4.6, 1.45, -0.3], 'heater.sIn'], r: 0.06, part: 'drum' }], { from: 'drum.sOut', to: 'heater.sIn', nodes: ['drum', 'heater.steam'], rate: () => 0.25 + 0.4 * st().load, clip: false, spacing: 0.3, rc: 0.3 });
   flow('water.cond', 'water', [{ pts: ['heater.sOut', [4.6, -0.2, 0.3], 'trap.in'], r: 0.035, part: 'trap' }], { from: 'heater.sOut', to: 'trap.in', nodes: ['heater.steam', 'trap'], rate: () => 0.15, clip: false, spacing: 0.12 });
 
-  // ---- 제어유 공급 (오일 팬 → 필터 → HPS → 고압관) ----
+  // ---- Control oil supply (oil pan → filter → HPS → HP pipe) ----
   {
     const h = slot('hps', SYSG);
     h.add(merge([box(1.0, 0.9, 0.9, 2.85, 1.1, -3.0, 0.04), ...[-3.3, -3.0, -2.7].map(z => cylY(0.13, 1.55, 1.95, 24).translate(2.95, 0, z)), ...[-3.3, -3.0, -2.7].map(z => cylY(0.07, 1.95, 2.05, 16).translate(2.95, 0, z)), box(0.9, 0.1, 1.0, 2.85, 0.6, -3.0, 0.01)]), M_('hpsm', { color: 0x5a4f74, metal: 0.4, rough: 0.5 }));

@@ -1,11 +1,11 @@
 // ===================================================================
-// 30 · ENGINE — 단면도 기준 배치 (y: 크랭크축 중심 = 0, x: +쪽 = 그림 오른쪽(연료·HCU), z: +쪽 = 선수(1번 실린더))
+// 30 · ENGINE — layout from the cutaway drawing (y: crankshaft centre = 0, x: + = right of the drawing (fuel, HCU), z: + = fore end (cylinder 1))
 // ===================================================================
 const merge = gs => mergeGeometries(gs.map(g => g.index ? g.toNonIndexed() : g), false);
 
 const LY = {
-  zc: k => (2.5 - k) * CFG.pitch,          // 실린더 k(0~5) 중심
-  zb: j => (3 - j) * CFG.pitch,            // 메인 베어링 j(0~6)
+  zc: k => (2.5 - k) * CFG.pitch,          // centre of cylinder k (0–5)
+  zb: j => (3 - j) * CFG.pitch,            // main bearing j (0–6)
   zF: 3.35, zA: -3.35,
   bedTop: 0.55, bedBot: -1.45, panBot: -2.3,
   frTop: 4.5, scavTop: 6.75, jackTop: 8.2,
@@ -14,7 +14,7 @@ const LY = {
 const ROOT = new THREE.Group(); ROOT.name = 'root'; scene.add(ROOT);
 const ENG = new THREE.Group(); ENG.name = 'engine'; ROOT.add(ENG);
 const MOV = { crank: null, throws: [], xh: [], rod: [], spindle: [], fv: [], hpsGear: null, tcRotor: null, cyl: [] };
-let BUILD_SYS = false;   // 계통 영역 부품은 절단면 적용 제외
+let BUILD_SYS = false;   // parts in the system area are excluded from the cut
 const M_ = (k, o = {}) => mat(k, BUILD_SYS ? { ...o, noclip: true } : o);
 
 function convexHull(pts) {
@@ -47,7 +47,7 @@ function buildEngine() {
   const mYel = M_('yelp', { color: C.yel, metal: 0.5, rough: 0.4 });
   const mLiner = M_('liner', { color: 0x8a8f8f, metal: 0.7, rough: 0.38 });
 
-  // ---------- 베드플레이트 ----------
+  // ---------- Bedplate ----------
   {
     const s = slot('bedplate', ENG);
     const gs = [];
@@ -61,21 +61,21 @@ function buildEngine() {
     [LY.zF, LY.zA].forEach(z => gs.push(extXY(shapeOf([[-1.9, -1.45], [1.9, -1.45], [1.9, 0.55], [-1.9, 0.55]], [{ circle: [0, 0, 0.40] }]), z - 0.04 * Math.sign(z) - 0.03, z - 0.04 * Math.sign(z) + 0.03)));
     s.add(merge(gs), mPaint);
   }
-  // 오일 팬
+  // Oil pan
   {
     const s = slot('oilpan', ENG);
     const out = [[-1.8, -1.45], [1.8, -1.45], [0.95, -2.3], [-0.95, -2.3]];
     const hole = [[-1.68, -1.5], [-0.9, -2.22], [0.9, -2.22], [1.68, -1.5]];
     s.add(merge([extXY(shapeOf(out, [hole]), -3.3, 3.3), extXY(shapeOf(out), 3.3, 3.34), extXY(shapeOf(out), -3.34, -3.3), cylX(0.09, 1.0, 1.32, 16).translate(0, -2.0, -2.0)]), mPaintD);
   }
-  // 메인 베어링
+  // Main bearing
   for (let j = 0; j <= N; j++) {
     const z = LY.zb(j), s = slot('mainbearing', ENG);
     s.add(ringZ(0.345, 0.43, z - 0.075, z + 0.075), mBrass);
     const studs = [-0.42, 0.42].map(x => cylY(0.035, 0.28, 0.7, 12).translate(x, 0, z));
     s.add(merge([box(1.05, 0.16, 0.2, 0, 0.5, z, 0.02), ...studs, ...[-0.42, 0.42].map(x => cylY(0.06, 0.58, 0.66, 6).translate(x, 0, z))]), mSteelD);
   }
-  // ---------- 프레임 박스 ----------
+  // ---------- Frame box ----------
   const wallX = (y, sd) => sd * (2.0 - (y - LY.bedTop) * (0.8 / (LY.frTop - LY.bedTop)));
   const tilt = Math.atan(0.8 / (LY.frTop - LY.bedTop));
   {
@@ -92,12 +92,12 @@ function buildEngine() {
     gs.push(box(2.5, 0.06, 6.7, 0, LY.frTop - 0.03, 0, 0.01));
     s.add(merge(gs), mPaint);
   }
-  // 크로스헤드 가이드 (실린더마다 2개)
+  // Crosshead guides (2 per cylinder)
   for (let k = 0; k < N; k++) {
     const z = LY.zc(k), s = slot('guide', ENG, k);
     s.add(merge([-1, 1].map(sd => box(0.30, 3.5, 0.035, 0, 2.7, z + sd * 0.4525, 0.005))), mSteelL);
   }
-  // 도어 (오른쪽), 릴리프 밸브 (왼쪽)
+  // Doors (right), relief valves (left)
   for (let k = 0; k < N; k++) {
     const z = LY.zc(k);
     const d = slot('door', ENG, k);
@@ -109,12 +109,12 @@ function buildEngine() {
     const g2 = merge([cylX(0.17, -0.06, 0.0, 28), cylX(0.2, -0.13, -0.06, 28), cylX(0.12, -0.2, -0.13, 20)]);
     g2.rotateZ(tilt); g2.translate(x2, y2, z); rv.add(g2, mRed);
   }
-  // ---------- 실린더 프레임 · 소기 박스 ----------
+  // ---------- Cylinder frame · scavenge box ----------
   {
     const s = slot('scavbox', ENG);
     const gs = [];
     const zs = LY.zF - 0.05, ze = LY.zA + 0.05;
-    // 왼쪽 벽 (리시버 쪽 개구부) — 형상은 (−z, y) 평면에서 정의 후 x 방향 압출
+    // Left wall (opening to the receiver) — profile defined in the (−z, y) plane, then extruded along x
     const winHoles = Array.from({ length: N }, (_, k) => { const z = LY.zc(k); return [[-(z - 0.3), 5.55], [-(z - 0.3), 6.3], [-(z + 0.3), 6.3], [-(z + 0.3), 5.55]]; });
     const wallShape = shapeOf([[-zs, LY.frTop], [-ze, LY.frTop], [-ze, LY.scavTop], [-zs, LY.scavTop]], winHoles);
     const lw = new THREE.ExtrudeGeometry(wallShape, { depth: 0.07, bevelEnabled: false }); lw.rotateY(Math.PI / 2); lw.translate(-0.95, 0, 0);
@@ -131,21 +131,21 @@ function buildEngine() {
     const g = extXZ(xzShape([[-0.95, z - 0.505], [0.95, z - 0.505], [0.95, z + 0.505], [-0.95, z + 0.505]], [{ circle: [0, z, 0.40] }]), LY.scavTop, LY.jackTop);
     s.add(g, mPaint);
   }
-  // 스테이 볼트
+  // Stay bolts
   for (let j = 0; j <= N; j++) {
     const z = LY.zb(j), s = slot('staybolt', ENG);
     const gs = [];
     [-0.75, 0.75].forEach(x => { gs.push(cylY(0.045, -1.3, LY.jackTop + 0.12, 10).translate(x, 0, z)); gs.push(cylY(0.085, LY.jackTop, LY.jackTop + 0.1, 6).translate(x, 0, z)); gs.push(cylY(0.085, -1.36, -1.28, 6).translate(x, 0, z)); });
     s.add(merge(gs), mSteel);
   }
-  // 스터핑 박스
+  // Stuffing box
   for (let k = 0; k < N; k++) {
     const z = LY.zc(k), s = slot('stuffing', ENG, k);
     const g = merge([lathe([[0.115, 4.3], [0.26, 4.3], [0.26, 4.36], [0.22, 4.36], [0.22, 4.58], [0.3, 4.58], [0.3, 4.64], [0.115, 4.64]], 40), ...[4.40, 4.47, 4.54].map(y => ringG(0.115, 0.235, y, y + 0.025, 32))]);
     g.translate(0, 0, z); s.add(g, mSteelD);
   }
 
-  // ---------- 크랭크축 (회전 그룹) ----------
+  // ---------- Crankshaft (rotating group) ----------
   const crank = new THREE.Group(); crank.name = 'crank'; ENG.add(crank); MOV.crank = crank;
   const offs = cylOffsets();
   {
@@ -167,7 +167,7 @@ function buildEngine() {
     const p = slot('crankpin', th, k);
     p.add(cylZ(0.30, z - 0.15, z + 0.15, 40).translate(0, r, 0), mSteelL);
   }
-  // 체인 스프로킷 + 플라이휠 (크랭크축과 같은 회전)
+  // Chain sprocket + flywheel (turn with the crankshaft)
   {
     const s = slot('chain', crank);
     const teeth = Array.from({ length: 36 }, (_, i) => { const g = box(0.06, 0.08, 0.1, 0, 0.66, -3.5, 0.005); g.rotateZ(i * 10 * DEG); return g; });
@@ -181,12 +181,12 @@ function buildEngine() {
     f.add(merge(marks), M_('mark', { color: 0xe8ddbf, metal: 0.2, rough: 0.5 }));
   }
 
-  // ---------- 실린더별 운동부와 연소실 ----------
+  // ---------- Running gear and combustion chamber per cylinder ----------
   const [po] = M.portAngles();
   for (let k = 0; k < N; k++) {
     const z = LY.zc(k);
     const cylRec = { k, z };
-    // 크로스헤드 + 피스톤 로드 + 피스톤 (수직 왕복 강체). 그룹 원점 = 크로스헤드 핀 중심
+    // Crosshead + piston rod + piston (vertically reciprocating rigid body). Group origin = crosshead pin centre
     const xh = new THREE.Group(); xh.name = 'xh' + (k + 1); xh.position.set(0, M.xhY(0), z); ENG.add(xh); MOV.xh.push(xh);
     slot('xhpin', xh, k).add(merge([cylZ(0.20, -0.352, 0.352, 36), box(0.42, 0.2, 0.26, 0, 0.3, 0, 0.03)]), mSteelL);
     slot('shoe', xh, k).add(merge([-1, 1].map(sd => box(0.40, 0.55, 0.07, 0, 0, sd * 0.395, 0.01))), mBrass);
@@ -200,7 +200,7 @@ function buildEngine() {
     }
     slot('rings', xh, k).add(merge([0.035, 0.075, 0.115, 0.155].map(d => ringG(0.284, 0.301, PH - d - 0.018, PH - d, 56))), mRing);
 
-    // 커넥팅 로드 (원점 = 크로스헤드 핀, 회전 = 로드 각)
+    // Connecting rod (origin = crosshead pin, rotation = rod angle)
     const rod = new THREE.Group(); rod.name = 'rod' + (k + 1); rod.position.set(0, M.xhY(0), z); ENG.add(rod); MOV.rod.push(rod);
     {
       const s = slot('conrod', rod, k);
@@ -213,7 +213,7 @@ function buildEngine() {
       slot('xhbearing', rod, k).add(ringZ(0.20, 0.22, -0.14, 0.14, 40), mBrass);
     }
 
-    // 라이너 + 소기 포트
+    // Liner + scavenge ports
     {
       const s = slot('liner', ENG, k);
       const pT = M.portTop(), pB = M.portBot();
@@ -229,14 +229,14 @@ function buildEngine() {
       const nP = 16, bars = [];
       for (let i = 0; i < nP; i++) {
         const b = box(0.035, pT - pB, 0.055, 0.3175, (pT + pB) / 2, 0, 0.003);
-        b.rotateY(22 * DEG);                       // 접선 방향 경사 (선회 유도)
+        b.rotateY(22 * DEG);                       // tangential angle (induces swirl)
         const g2 = new THREE.BufferGeometry().copy(b); b.dispose();
         g2.translate(0, 0, 0); g2.rotateY(i * 2 * Math.PI / nP);
         bars.push(g2);
       }
       const pg = merge(bars); pg.translate(0, 0, z); ps.add(pg, mLiner);
     }
-    // 실린더 커버
+    // Cylinder cover
     {
       const s = slot('cover', ENG, k);
       const g = lathe([[0.22, H + 0.03], [0.30, H], [0.56, H], [0.56, H + 0.42], [0.30, H + 0.42], [0.22, H + 0.3]], 56);
@@ -246,7 +246,7 @@ function buildEngine() {
       const sg = lathe([[0.165, H + 0.0], [0.22, H + 0.0], [0.22, H + 0.07], [0.195, H + 0.07], [0.165, H + 0.035]], 48); sg.translate(0, 0, z);
       seat.add(sg, mStel);
     }
-    // 배기밸브 하우징 · 공기 스프링 · 상부 유압 실린더
+    // Exhaust valve housing · air spring · top hydraulic cylinder
     {
       const s = slot('evhousing', ENG, k);
       const g = merge([
@@ -262,13 +262,13 @@ function buildEngine() {
       const hg = merge([cylY(0.115, H + 1.75, H + 2.06, 32), cylY(0.14, H + 1.75, H + 1.8, 32), cylX(0.035, 0.1, 0.2, 10).translate(0, H + 1.95, 0)]); hg.translate(0, 0, z);
       hc.add(hg, mPur);
     }
-    // 배기밸브 스핀들 (이동 그룹, 원점 = 닫힌 상태 디스크 하면)
+    // Exhaust valve spindle (moving group, origin = disc underside when closed)
     {
       const sp = new THREE.Group(); sp.name = 'spindle' + (k + 1); sp.position.set(0, H, z); ENG.add(sp); MOV.spindle.push(sp);
       const s = slot('evspindle', sp, k);
       s.add(merge([lathe([[0, -0.005], [0.17, -0.005], [0.2, 0.03], [0.07, 0.07], [0.04, 0.1], [0, 0.1]], 48), cylY(0.035, 0.09, 1.82, 20), cylY(0.14, 1.55, 1.65, 32), cylY(0.08, 1.7, 1.8, 24)]), mSteelL);
     }
-    // 연료 분사밸브 2개 (−35°, −145°), 바깥쪽 15° 경사
+    // Two fuel valves (−35°, −145°), tilted 15° outward
     cylRec.fv = [];
     [-35, -145].forEach((ang, vi) => {
       const a = ang * DEG, rr = 0.262;
@@ -286,14 +286,14 @@ function buildEngine() {
       const dir = V3(-Math.cos(a) * 0.75 - Math.sin(a) * 0.45, -0.32, -Math.sin(a) * 0.75 + Math.cos(a) * 0.45).normalize();
       cylRec.fv.push({ nozzle, top, dir });
     });
-    // 시동 공기 밸브
+    // Starting air valve
     {
       const a = 200 * DEG, x = 0.40 * Math.cos(a), zz = z + 0.40 * Math.sin(a);
       const s = slot('startvalve', ENG, k);
       s.add(merge([cylY(0.065, H + 0.42, H + 0.62, 20).translate(x, 0, zz), cylY(0.045, H + 0.62, H + 0.74, 16).translate(x, 0, zz)]), mSteelD);
       cylRec.sv = V3(x, H + 0.74, zz);
     }
-    // HCU 구성품 (오른쪽)
+    // HCU components (right)
     {
       slot('hcu', ENG, k).add(merge([box(0.22, 1.55, 0.62, 1.3, 7.78, z, 0.02), box(0.26, 0.18, 0.3, 1.07, 7.8, z, 0.01), box(0.26, 0.18, 0.3, 1.07, 7.2, z, 0.01)]), M_('hcu', { color: 0x4a5560, metal: 0.5, rough: 0.45 }));
       const ac = slot('accum', ENG, k);
@@ -305,11 +305,11 @@ function buildEngine() {
       slot('mpc', ENG, k).add(merge([box(0.26, 1.1, 0.4, 2.45, 5.85, z, 0.02), box(1.38, 0.08, 0.08, 1.64, 5.85, z, 0.01), box(0.02, 0.9, 0.3, 2.59, 5.85, z, 0.005), cylY(0.02, 6.4, 7.05, 8).translate(2.4, 0, z + 0.12)]), mCab);
       cylRec.mpcLed = V3(2.6, 6.2, z);
     }
-    // PCO 온도계
+    // PCO thermometer
     slot('pco', ENG, k).add(merge([cylX(0.07, 0.0, 0.05, 20), box(0.1, 0.16, 0.06, -0.04, -0.11, 0, 0.01)]).translate(wallX(0.95, 1) + 0.02, 0.95, z + 0.3), M_('gauge', { color: 0xd8d4c8, metal: 0.2, rough: 0.5 }));
     MOV.cyl.push(cylRec);
   }
-  // 오일 미스트 검출기 (오른쪽 프레임 벽)
+  // Oil mist detector (right frame wall)
   {
     const s = slot('oilmist', ENG);
     const x = wallX(2.8, 1) + 0.12;
@@ -318,15 +318,15 @@ function buildEngine() {
     gs.push(cylY(0.02, 2.95, 3.3, 8).translate(x - 0.04, 0, 0));
     s.add(merge(gs), M_('omd', { color: 0xc9b46a, metal: 0.3, rough: 0.5 }));
   }
-  // 엔코더 (선수 축단)
+  // Encoder (fore shaft end)
   slot('encoder', ENG).add(merge([cylZ(0.16, 3.78, 3.86, 32), box(0.5, 0.6, 0.2, 0, -0.1, 3.94, 0.03), box(0.5, 0.06, 0.4, 0, -0.43, 3.78, 0.01)]), mCab);
-  // 터닝 기어
+  // Turning gear
   {
     const s = slot('turning', ENG);
     const a = 125 * DEG, rp = 1.67, px = rp * Math.sin(a), py = rp * Math.cos(a);
     s.add(merge([cylZ(0.12, -3.98, -3.78, 20).translate(px, py, 0), box(0.55, 0.45, 0.5, px + 0.42, py - 0.32, -3.88, 0.03), cylX(0.16, px + 0.7, px + 1.15, 24).translate(0, py - 0.32, -3.88)]), mCab);
   }
-  // 체인 (정지 링크 표현) + HPS 구동 기어
+  // Chain (shown as static links) + HPS drive gear
   {
     const s = slot('chain', ENG);
     const c1 = V3(0, 0, -3.5), c2 = V3(2.2, 1.1, -3.5), r1 = 0.68, r2 = 0.34;
@@ -341,7 +341,7 @@ function buildEngine() {
     slot('chain', gear).add(merge([cylZ(0.36, -0.05, 0.05, 32), ...gt, cylZ(0.1, -0.05, 0.6, 16)]), mSteelD);
   }
 
-  // 시동 공기 분배관 · 주 시동 밸브
+  // Starting air distribution pipe · main starting valve
   {
     const s = slot('startpipe', ENG);
     const gs = [cylZ(0.07, -2.9, 3.0, 16).translate(-0.85, 9.02, 0)];

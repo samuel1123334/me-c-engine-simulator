@@ -11,7 +11,7 @@ const out = head + '\n<script type="module">\n' + [...new Set(imports)].join('\n
 fs.mkdirSync(new URL('./dist/', import.meta.url).pathname, { recursive: true });
 fs.writeFileSync(new URL('./dist/engine.html', import.meta.url).pathname, out);
 // 브라우저에서 바로 열거나 GitHub Pages로 배포할 수 있는 완전한 HTML 문서
-const page = '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n</head>\n<body>\n' + out + '</body>\n</html>\n';
+const page = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n</head>\n<body>\n' + out + '</body>\n</html>\n';
 fs.mkdirSync(new URL('./docs/', import.meta.url).pathname, { recursive: true });
 fs.writeFileSync(new URL('./docs/index.html', import.meta.url).pathname, page);
 console.log('dist/engine.html', (out.length / 1024).toFixed(1) + ' KB · docs/index.html');

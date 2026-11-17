@@ -1,14 +1,14 @@
 // ===================================================================
-// 45 · FIELD — 실린더 내부 2D 단면 유동장 (워커에서 계산, 크랭크각 테이블로 저장)
-// MAC 격자 · 반라그랑주 이류 · 공액경사법 압력 투영.
-//   경계: 피스톤(이동 벽), 소기 포트(측벽 유입, 0D 질량유량), 배기밸브(상부 유출, 0D 질량유량)
-//   균일 체적 변화율 S로 압축·팽창을 표현 (div u = S)
-// 스칼라: a = 미연소 공기 분율, T = 온도(0D 평균에 맞춰 정규화), s = 이번 사이클 공급 공기 추적자, w = 선회 속도
-// 한 사이클을 주기 상태까지 반복 계산한 뒤 1° 간격 스냅숏으로 저장 → 재생·정지·수동 조절에서 같은 값.
-// 2D 단면 근사이며 실제 3D CFD 결과가 아니다.
+// 45 · FIELD — 2D in-cylinder section flow field (computed in a worker, stored as a crank-angle table)
+// MAC grid · semi-Lagrangian advection · pressure projection.
+//   Boundaries: piston (moving wall), scavenge ports (side-wall inflow, 0D mass rate), exhaust valve (top outflow, 0D mass rate)
+//   Compression and expansion represented by a uniform volume change rate S (div u = S)
+// Scalars: a = fresh-air fraction, T = temperature (normalised to the 0D mean), s = tracer for air supplied this cycle, w = swirl velocity
+// One cycle is iterated to a periodic state, then stored as 1° snapshots → identical values in playback, pause and scrubbing.
+// A 2D section approximation, not a real 3D CFD result.
 // ===================================================================
 function FIELD_SIM() {
-  let WARM = null;   // 직전 계산의 마지막 상태 (같은 격자면 다음 계산의 초기값으로 사용)
+  let WARM = null;   // Final state of the previous run (used as the initial value of the next run on the same grid)
   function simulateField(J) {
     const t0 = Date.now();
     const NX = J.NX, NY = J.NY, B = J.B, hx = B / NX, hy = (J.yH - J.y0) / NY, xmin = -B / 2, y0 = J.y0;
@@ -25,10 +25,10 @@ function FIELD_SIM() {
     const NS = J.crown.length, dth0 = 360 / NS;
     const at = (arr, th) => { const x = (((th % 360) + 360) % 360) / dth0, i = Math.floor(x) % NS, f = x - Math.floor(x); return arr[i] + (arr[(i + 1) % NS] - arr[i]) * f; };
     const yc = j => y0 + (j + 0.5) * hy, xc = i => xmin + (i + 0.5) * hx;
-    let Ma = -1, Ms = -1;   // 공기·추적자 질량 수지 (전역 보존 보정용)
+    let Ma = -1, Ms = -1;   // Air/tracer mass budget (for global conservation correction)
     let jb = J.warm && WARM && WARM.NX === NX && WARM.NY === NY ? WARM.jb : 0;
     const tanSw = Math.tan(20 * Math.PI / 180);
-    // ---- 보간 ----
+    // ---- Interpolation ----
     const clampi = (v, a, b) => v < a ? a : v > b ? b : v;
     function sampleC(F, x, y) {
       let fx = (x - xmin) / hx - 0.5, fy = (y - y0) / hy - 0.5;
@@ -54,21 +54,21 @@ function FIELD_SIM() {
       const mx = x - 0.5 * dt * ux, my = y - 0.5 * dt * vy;
       BX = x - dt * sampleU(mx, my); BY = y - dt * sampleV(mx, my);
     }
-    // ---- 통계 ----
+    // ---- Statistics ----
     const D = { inMass: 0, outS: 0, etaSc: 0, etaTr: 0, short: 0, divMax: 0, cgIt: 0, steps: 0 };
     const snapN = 360, snaps = new Uint8Array(snapN * N * 4), omega = new Float32Array(snapN), aMean = new Float32Array(snapN), sMean = new Float32Array(snapN);
     let snapStart = null, snapEnd = null;
-    // ---- 한 스텝 ----
+    // ---- One step ----
     function step(th, dth, record) {
       const rpm = J.rpm, dt = dth / (6 * rpm), thm = th + dth / 2, the = th + dth;
       const crownE = at(J.crown, the), vp = at(J.vp, thm);
       const mIn = at(J.mIn, thm), mOut = at(J.mOut, thm), rho = at(J.rho, thm), Tm = at(J.Tm, the);
-      // 1. 유체 영역 갱신 (피스톤 위)
+      // 1. Update fluid region (above the piston)
       let jbNew = NY - 1; for (let j = 0; j < NY; j++) if (yc(j) > crownE) { jbNew = j; break; }
       if (jbNew < jb) { for (let j = jbNew; j < jb; j++) for (let i = 0; i < NX; i++) { const k = ix(i, j), kk = ix(i, jb); a[k] = a[kk]; T[k] = T[kk]; s[k] = s[kk]; w[k] = w[kk]; } }
       jb = jbNew;
       for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) fluid[ix(i, j)] = j >= jb ? 1 : 0;
-      // 2. 이류
+      // 2. Advection
       const wDec = Math.exp(-1.5 * dt);
       for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) {
         const k = ix(i, j); back(xc(i), yc(j), dt);
@@ -85,12 +85,12 @@ function FIELD_SIM() {
       for (let j = jb + 1; j < NY; j++) for (let i = 0; i < NX; i++) { back(xc(i), y0 + j * hy, dt); v2[ixV(i, j)] = sampleV(BX, BY); }
       [a, a2] = [a2, a]; [T, T2] = [T2, T]; [s, s2] = [s2, s]; [w, w2] = [w2, w]; [u, u2] = [u2, u]; [v, v2] = [v2, v];
       for (let j = 0; j < jb; j++) { for (let i = 0; i <= NX; i++) u[ixU(i, j)] = 0; for (let i = 0; i < NX; i++) v[ixV(i, j)] = 0; }
-      // 3. 경계 속도 (단위 깊이당 2D 체적 유량 = 3D 평균 축방향 속도 × 보어 폭)
+      // 3. Boundary velocities (2D volume flow per unit depth = 3D mean axial velocity × bore width)
       const Ap3 = Math.PI * B * B / 4;
-      for (let i = 0; i < NX; i++) v[ixV(i, jb)] = vp;                      // 피스톤 면
+      for (let i = 0; i < NX; i++) v[ixV(i, jb)] = vp;                      // piston face
       for (let j = jb; j < NY; j++) { u[ixU(0, j)] = 0; u[ixU(NX, j)] = 0; }
       for (let i = 0; i < NX; i++) v[ixV(i, NY)] = 0;
-      let fluxIn = vp * B;                                                    // 순유입 (m²/s)
+      let fluxIn = vp * B;                                                    // net inflow (m²/s)
       const portLo = Math.max(crownE, J.portBot), portHi = J.portTop, hOpen = Math.max(0, portHi - portLo);
       const inflow = [];                                                      // [cell, flux, aIn, TIn, sIn, wIn]
       if (hOpen > 1e-4 && mIn !== 0) {
@@ -120,14 +120,14 @@ function FIELD_SIM() {
         }
       }
       if (mIn > 0 && hOpen > 1e-4) D.inMass += mIn * dt;
-      // 4. 경계 스칼라 혼합 (유입 유속만큼 셀 내용 교체)
+      // 4. Boundary scalar mixing (replace cell contents in proportion to inflow)
       if (Ma < 0) { const m0 = at(J.mCyl, th), nF0 = NX * (NY - jb); let sa = 0, ss = 0; for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) { sa += a[ix(i, j)]; ss += s[ix(i, j)]; } Ma = sa * m0 / nF0; Ms = ss * m0 / nF0; }
-      // 질량 수지: 포트 유입(공기 1), 포트 역류·배기 유출(경계 셀의 분율)
+      // Mass budget: port inflow (air 1), port backflow and exhaust outflow (fraction of the boundary cells)
       if (mIn > 0 && hOpen > 1e-4) { Ma += mIn * dt; Ms += mIn * dt; }
       else if (mIn < 0 && hOpen > 1e-4) { let sa = 0, ss = 0, n = 0; for (let j = jb; j < NY; j++) if (u[ixU(0, j)] !== 0) { sa += a[ix(0, j)] + a[ix(NX - 1, j)]; ss += s[ix(0, j)] + s[ix(NX - 1, j)]; n += 2; } if (n) { Ma += mIn * dt * sa / n; Ms += mIn * dt * ss / n; } }
       if (mOut > 0 && at(J.lift, thm) > 0) { let sa = 0, ss = 0, wt = 0; for (let i = 0; i < NX; i++) { const vf = v[ixV(i, NY)]; if (vf > 0) { sa += a[ix(i, NY - 1)] * vf; ss += s[ix(i, NY - 1)] * vf; wt += vf; } } if (wt > 0) { Ma -= mOut * dt * sa / wt; Ms -= mOut * dt * ss / wt; } }
       for (const [k, F, ai, Ti, si, wi] of inflow) { const f = Math.min(1, F * dt / (hx * hy)); a[k] += (ai - a[k]) * f; T[k] += (Ti - T[k]) * f; s[k] += (si - s[k]) * f; w[k] += (wi - w[k]) * f; }
-      // 5. 연소 열방출 (분무 플룸 → 후기에는 고온·공기 존재 영역)
+      // 5. Combustion heat release (spray plume → later, regions that are hot and have air)
       const dQ = at(J.dQ, thm) * dth;
       if (dQ > 0) {
         const nF = NX * (NY - jb), mc = at(J.mCyl, thm) / nF, since = at(J.since, thm), injOn = since >= 0 && since < J.injDur + 4;
@@ -154,11 +154,11 @@ function FIELD_SIM() {
           }
         }
       }
-      // 6. 벽 열손실 (라이너·커버·피스톤 근처 셀)
+      // 6. Wall heat loss (cells near liner, cover and piston)
       const kw = 1 - Math.exp(-18 * dt);
       for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) if (i === 0 || i === NX - 1 || j === jb || j === NY - 1) { const k = ix(i, j); T[k] += (J.Tw - T[k]) * kw * 0.5; }
-      // 7. 압력 투영
-      const nF = NX * (NY - jb), Afl = nF * hx * hy, S = -fluxIn / Afl;   // 순유입 → 압축 (div u < 0)
+      // 7. Pressure projection
+      const nF = NX * (NY - jb), Afl = nF * hx * hy, S = -fluxIn / Afl;   // net inflow → compression (div u < 0)
       let rsum = 0;
       for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) {
         const k = ix(i, j);
@@ -168,7 +168,7 @@ function FIELD_SIM() {
         dg[k] = d;
       }
       rsum /= nF; for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) rhs[ix(i, j)] -= rsum;
-      // 직접해: 직사각 유체 영역 + 노이만 경계 → x 방향 DCT로 대각화, 모드별 y 방향 삼중대각 (Thomas)
+      // Direct solve: rectangular fluid region + Neumann boundaries → diagonalised with a DCT in x, tridiagonal in y per mode (Thomas)
       for (let kx = 0; kx < NX; kx++) {
         for (let j = jb; j < NY; j++) { let acc = 0; const row = j * NX; for (let i = 0; i < NX; i++) acc += COS[kx * NX + i] * rhs[row + i]; HAT[kx * NY + j] = acc; }
         const lam = LAM[kx] + (kx === 0 ? 1e-7 / (hy * hy) : 0), oy = -1 / (hy * hy);
@@ -186,12 +186,12 @@ function FIELD_SIM() {
       for (let j = jb + 1; j < NY; j++) for (let i = 0; i < NX; i++) v[ixV(i, j)] -= dt * (phi[ix(i, j)] - phi[ix(i, j - 1)]) / hy;
       if (record) {
         let dm = 0; for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) { const div = (u[ixU(i + 1, j)] - u[ixU(i, j)]) / hx + (v[ixV(i, j + 1)] - v[ixV(i, j)]) / hy; dm = Math.max(dm, Math.abs(div - S)); }
-        D.divMax = Math.max(D.divMax, dm * hx);   // 셀 크기 기준 속도 오차 (m/s)
+        D.divMax = Math.max(D.divMax, dm * hx);   // velocity error relative to cell size (m/s)
       }
-      // 8. 온도 정규화: 질량 가중 평균(균일 압력에서 조화평균)을 0D 평균 온도에 맞춤
+      // 8. Temperature normalisation: match the mass-weighted mean (harmonic mean at uniform pressure) to the 0D mean temperature
       let inv = 0; for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) inv += 1 / Math.max(200, T[ix(i, j)]);
       const kT = Tm / (nF / inv); for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) { const k = ix(i, j); T[k] = Math.min(3200, Math.max(250, T[k] * kT)); }
-      // 8b. 전역 보존 보정: 셀 분율 합이 질량 수지와 같도록 배율 조정 (반라그랑주 이류·피스톤 셀 추가의 비보존 오차 제거)
+      // 8b. Global conservation correction: rescale so the sum of cell fractions equals the mass budget (removes non-conservation from semi-Lagrangian advection and piston-cell addition)
       { const m1 = at(J.mCyl, the), mc1 = m1 / nF; let sa = 0, ss = 0;
         for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) { sa += a[ix(i, j)]; ss += s[ix(i, j)]; }
         Ma = Math.max(0, Ma); Ms = Math.max(0, Ms);
@@ -199,7 +199,7 @@ function FIELD_SIM() {
         let sa2 = 0, ss2 = 0;
         for (let j = jb; j < NY; j++) for (let i = 0; i < NX; i++) { const k = ix(i, j); a[k] = Math.min(1, a[k] * ka); s[k] = Math.min(1, s[k] * ks); sa2 += a[k]; ss2 += s[k]; }
         Ma = sa2 * mc1; Ms = ss2 * mc1; D.corrMax = Math.max(D.corrMax || 0, Math.abs(ka - 1), Math.abs(ks - 1)); }
-      // 9. 소기 지표: 포트 개방 순간 추적자 초기화, 배기밸브 폐쇄 순간 기록
+      // 9. Scavenging metrics: reset tracer when the ports open, record when the exhaust valve closes
       const wr = x => ((x % 360) + 360) % 360;
       if (wr(th) < J.po && wr(the) >= J.po) { s.fill(0); Ms = 0; D.inMass = 0; D.outS = 0; }
       if (wr(th) < J.evc && wr(the) >= J.evc && record !== null) {
@@ -225,11 +225,11 @@ function FIELD_SIM() {
         }
       }
       omega[deg] = 1.5 * (wm / Math.max(1, n)) / (B / 2);
-      const mT = at(J.mCyl, deg);   // 공기·추적자 질량 = 셀 평균 분율 × 실린더 질량 (균일 밀도 가정)
+      const mT = at(J.mCyl, deg);   // air/tracer mass = mean cell fraction × cylinder mass (uniform density assumed)
       aMean[deg] = am / Math.max(1, n) * mT; sMean[deg] = sm / Math.max(1, n) * mT;
     }
     const copyState = () => ({ a: Float32Array.from(a), T: Float32Array.from(T) });
-    // ---- 실행: θ = 300° 에서 시작, cycles 회 반복, 마지막 사이클 기록 ----
+    // ---- Run: start at θ = 300°, repeat `cycles` times, record the last cycle ----
     const th0 = 300, gx0 = 105, gx1 = 265;
     const dthOf = th => { const x = ((th % 360) + 360) % 360; return (x >= gx0 && x < gx1) || (x >= 355 || x < 40) ? 0.5 : 1; };
     for (let c = 0; c < J.cycles; c++) {

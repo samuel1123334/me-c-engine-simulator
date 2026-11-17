@@ -1,5 +1,5 @@
 // ===================================================================
-// 20 · SCENE — 렌더러, 카메라, 재질(절단면 해칭), 형상 도우미, 부품 레지스트리
+// 20 · SCENE — renderer, camera, materials (cut-face hatching), geometry helpers, part registry
 // ===================================================================
 
 const $ = id => document.getElementById(id);
@@ -27,11 +27,11 @@ controls.enableDamping = true; controls.dampingFactor = 0.09;
 controls.screenSpacePanning = true; controls.minDistance = 0.6; controls.maxDistance = 140;
 controls.zoomSpeed = 0.9;
 
-// ---- 절단면 ----
+// ---- Cut plane ----
 const CLIP = { plane: new THREE.Plane(new THREE.Vector3(0, 0, -1), 10), arr: [], axis: 'z', pos: 0, on: true };
 function clipKeeps(p) { return !CLIP.arr.length || CLIP.plane.distanceToPoint(p) >= -1e-4; }
 
-// ---- 재질 ----
+// ---- Materials ----
 const MAT = new Map();
 const HOUSING_MATS = new Set(), PIPE_MATS = new Set();
 function addCap(m) {
@@ -67,10 +67,10 @@ const C = {
   insul: 0xb9b4a6, cab: 0x3a4248, red: 0xb24a3a, blueS: 0x4f6f8c, yel: 0xa48a2c, pur: 0x6e528f, grn: 0x3f7a5f,
 };
 
-// ---- 형상 도우미 ----
+// ---- Geometry helpers ----
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const V2 = (x, y) => new THREE.Vector2(x, y);
-// (r, y) 단면을 반시계 방향으로 맞춰 바깥 면이 앞면이 되게 한다 (절단면 해칭이 뒷면에서만 그려지므로 필수)
+// Wind the (r, y) profile counter-clockwise so the outer face is the front face (required because cut-face hatching is drawn on back faces only)
 function lathe(pts, seg = 48, start = 0, len = Math.PI * 2) {
   let q = pts.map(p => [Math.max(0, p[0]), p[1]]);
   const ring = q.concat([[0, q[q.length - 1][1]], [0, q[0][1]]]);
@@ -105,21 +105,21 @@ function rrectPts(x0, y0, x1, y1, r, n = 6) {
   cs.forEach(([cx, cy, a0]) => { for (let i = 0; i <= n; i++) { const a = (a0 + 90 * i / n) * DEG; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } });
   return pts;
 }
-// XY 단면을 z 방향으로 압출
+// Extrude an XY profile along z
 function extXY(shape, z0, z1, bevel = 0) {
   const g = new THREE.ExtrudeGeometry(shape, { depth: z1 - z0, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 24 });
   g.translate(0, 0, z0); return g;
 }
-// XZ 평면도(x, z)를 y 방향으로 압출
+// Extrude an XZ plan (x, z) along y
 function extXZ(shape, y0, y1) {
   const g = new THREE.ExtrudeGeometry(shape, { depth: y1 - y0, bevelEnabled: false, curveSegments: 32 });
   g.rotateX(-Math.PI / 2); g.scale(1, 1, 1); g.translate(0, y0, 0);
-  // rotateX(-90°): (sx, sy, d) → (sx, d, -sy). 평면도는 z = -sy 로 정의해 사용
+  // rotateX(-90°): (sx, sy, d) → (sx, d, -sy). Plans are defined with z = -sy
   return g;
 }
 function xzShape(pts, holes = []) { return shapeOf(pts.map(p => [p[0], -p[1]]), holes.map(h => h.circle ? { circle: [h.circle[0], -h.circle[1], h.circle[2]] } : h.map(q => [q[0], -q[1]]))); }
 
-// ---- 둥근 모서리 경로 (배관과 입자가 같은 곡선을 공유) ----
+// ---- Rounded-corner path (pipes and particles share the same curve) ----
 class Route {
   constructor(pts, rc = 0.18) {
     this.pts = pts.map(p => p.isVector3 ? p.clone() : V3(p[0], p[1], p[2]));
@@ -154,13 +154,15 @@ class Route {
 }
 function tubeG(route, r, radial = 12) { return new THREE.TubeGeometry(route.curve, Math.max(8, Math.ceil(route.length * 10)), r, radial, false); }
 
-// ---- 부품 레지스트리 ----
+// Secondary (English reference) name, shown only when it adds something beyond the display name
+const altName = (en, ko) => { const k = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); return en && k(en) !== k(ko) ? en : ''; };
+// ---- Part registry ----
 // PARTS[id] = { id, ko, en, cat, desc, sys[], pos, inst: [{slot, cyl, meshes[]}], label }
 const PARTS = {};
 const PICKABLE = [];
 const CATS = {
-  struct: '구조물', moving: '운동부', comb: '연소실', air: '소기 계통', exh: '배기 계통',
-  fuel: '연료 계통', ctrl: '제어유 · HCU', boiler: '보일러', aux: '계측 · 보조',
+  struct: 'Structure', moving: 'Running gear', comb: 'Combustion chamber', air: 'Scavenge air', exh: 'Exhaust',
+  fuel: 'Fuel', ctrl: 'Control oil · HCU', boiler: 'Boiler', aux: 'Instruments · auxiliaries',
 };
 const CAT_VIS = Object.fromEntries(Object.keys(CATS).map(k => [k, true]));
 function defPart(id, ko, en, cat, desc, sys = [], pos = 'img', extra = {}) {
